@@ -9,6 +9,7 @@ import (
 	"github.com/blang/semver/v4"
 
 	"github.com/greenplum-db/gpupgrade/greenplum"
+	"github.com/greenplum-db/gpupgrade/testutils"
 	"github.com/greenplum-db/gpupgrade/testutils/testlog"
 )
 
@@ -72,7 +73,7 @@ func TestConnection(t *testing.T) {
 			[]greenplum.Option{
 				greenplum.UtilityMode(),
 			},
-			"postgresql://localhost:15432/template1?search_path=&gp_role=utility",
+			"postgresql://localhost:15432/template1?search_path=&gp_session_role=utility",
 		},
 		{
 			"allow system table mods",
@@ -94,15 +95,21 @@ func TestConnection(t *testing.T) {
 		},
 	}
 
-	source := MustCreateCluster(t, greenplum.SegConfigs{
+	source, mock := greenplum.MustCreateMockCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, DbID: 1, Port: 15432, Hostname: "localhost", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole},
 	})
+
+	defer testutils.FinishMock(mock, t)
+	defer source.CloseConnection()
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			source.Version = c.version
 
-			_ = source.Connect(c.options...)
+			err := source.Connect(c.options...)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if source.Connection.URI != c.expected {
 				t.Errorf("got %q, want %q", source.Connection.URI, c.expected)
 			}

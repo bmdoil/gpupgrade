@@ -38,7 +38,7 @@ func CoordinatorHostReturnsUsage(expected disk.FileSystemDiskUsage) disk.CheckUs
 }
 
 func TestCheckDiskSpace_OnCoordinator(t *testing.T) {
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, Hostname: "mdw", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole},
 	})
 
@@ -84,7 +84,7 @@ func TestCheckDiskSpace_OnCoordinator(t *testing.T) {
 }
 
 func TestCheckDiskSpace_OnSegments(t *testing.T) {
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "mdw", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "smdw", DataDir: "/data/standby", Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast/seg1", Role: greenplum.PrimaryRole},
@@ -237,7 +237,7 @@ func TestCheckDiskSpace_OnSegments(t *testing.T) {
 			{AgentClient: mirror, Hostname: "mirror"},
 		}
 
-		sourceCluster := hub.MustCreateCluster(t, greenplum.SegConfigs{
+		sourceCluster := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{DbID: 1, ContentID: -1, Hostname: "primary", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole},
 			{DbID: 2, ContentID: -1, Hostname: "mirror", DataDir: "/data/standby", Role: greenplum.MirrorRole},
 			{DbID: 3, ContentID: 0, Hostname: "primary", DataDir: "/data/dbfast/seg1", Role: greenplum.PrimaryRole},
@@ -278,7 +278,7 @@ func TestCheckDiskSpace_OnSegments(t *testing.T) {
 			{AgentClient: sdw2, Hostname: "sdw2"},
 		}
 
-		coordinatorOnlyCluster := hub.MustCreateCluster(t, greenplum.SegConfigs{
+		coordinatorOnlyCluster := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, Hostname: "mdw", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole},
 		})
 

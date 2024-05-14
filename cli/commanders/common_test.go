@@ -43,17 +43,6 @@ func init() {
 	)
 }
 
-func MustCreateCluster(t *testing.T, segments greenplum.SegConfigs) *greenplum.Cluster {
-	t.Helper()
-
-	cluster, err := greenplum.NewCluster(segments)
-	if err != nil {
-		t.Fatalf("%+v", err)
-	}
-
-	return &cluster
-}
-
 func MustEncodeCluster(t *testing.T, cluster *greenplum.Cluster) []byte {
 	encodedCluster, err := cluster.Encode()
 	if err != nil {

@@ -22,7 +22,7 @@ import (
 )
 
 func TestDeleteBackupDirectories(t *testing.T) {
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/coordinator/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby/seg-1", Port: 16432, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data1/primaries/seg1", Port: 25433, Role: greenplum.PrimaryRole},

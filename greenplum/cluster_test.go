@@ -31,7 +31,7 @@ func TestHasMirrors(t *testing.T) {
 	}{
 		{
 			name: "returns true when cluster has mirrors and standby",
-			cluster: MustCreateCluster(t, greenplum.SegConfigs{
+			cluster: greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 				{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 				{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 				{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
@@ -41,7 +41,7 @@ func TestHasMirrors(t *testing.T) {
 		},
 		{
 			name: "returns false when cluster has no mirrors and standby",
-			cluster: MustCreateCluster(t, greenplum.SegConfigs{
+			cluster: greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 				{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 				{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 			}),
@@ -49,7 +49,7 @@ func TestHasMirrors(t *testing.T) {
 		},
 		{
 			name: "returns false when cluster has no mirrors and no standby",
-			cluster: MustCreateCluster(t, greenplum.SegConfigs{
+			cluster: greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 				{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 			}),
 			expected: false,
@@ -379,7 +379,7 @@ func TestHasAllMirrorsAndStandby(t *testing.T) {
 func TestRunGreenplumCmd(t *testing.T) {
 	testlog.SetupTestLogger()
 
-	cluster := MustCreateCluster(t, greenplum.SegConfigs{
+	cluster := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 	})
 	cluster.GPHome = "/usr/local/greenplum-db"
@@ -488,13 +488,3 @@ func TestGetCoordinatorSegPrefix(t *testing.T) {
 	})
 }
 
-func MustCreateCluster(t *testing.T, segments greenplum.SegConfigs) *greenplum.Cluster {
-	t.Helper()
-
-	cluster, err := greenplum.NewCluster(segments)
-	if err != nil {
-		t.Fatalf("%+v", err)
-	}
-
-	return &cluster
-}

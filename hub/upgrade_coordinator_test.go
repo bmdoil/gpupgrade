@@ -98,13 +98,13 @@ func TestUpgradeCoordinator(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, Port: 5432, DataDir: "/data/old", DbID: 1, Role: greenplum.PrimaryRole},
 		{ContentID: -1, Port: 5433, DataDir: "/data/standby", DbID: 2, Role: greenplum.MirrorRole},
 	})
 	source.GPHome = "/usr/local/source"
 
-	intermediate := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	intermediate := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, Port: 5433, DataDir: "/data/new", DbID: 2, Role: greenplum.PrimaryRole},
 	})
 	intermediate.GPHome = "/usr/local/target"

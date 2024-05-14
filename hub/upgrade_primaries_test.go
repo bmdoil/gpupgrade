@@ -25,7 +25,7 @@ import (
 
 func TestUpgradePrimaries(t *testing.T) {
 
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 
@@ -41,7 +41,7 @@ func TestUpgradePrimaries(t *testing.T) {
 	})
 	source.GPHome = "/usr/local/gpdb5"
 
-	intermediate := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	intermediate := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg.HqtFHX54y0o.-1", Port: 60432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby.HqtFHX54y0o", Port: 60433, Role: greenplum.MirrorRole},
 

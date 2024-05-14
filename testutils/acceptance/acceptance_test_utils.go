@@ -260,7 +260,7 @@ func GetTempTargetCluster(t *testing.T) greenplum.Cluster {
 func getCluster(t *testing.T, gphome string, port int, destination idl.ClusterDestination) greenplum.Cluster {
 	t.Helper()
 
-	conn, err := greenplum.NewConnection(greenplum.Port(port))
+	conn, err := greenplum.NewConnection(greenplum.URI(greenplum.Port(port)), 1)
 	if err != nil {
 		t.Fatalf("bootstrapping db connection to %q %q %q: %v", destination, gphome, port, err)
 	}

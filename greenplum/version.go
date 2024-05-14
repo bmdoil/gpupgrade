@@ -55,11 +55,17 @@ func VersionStringFromGPHome(gphome string) (string, error) {
 func Version(from any) (semver.Version, error) {
 	var rawVersion string
 	var err error
-	switch from.(type) {
+	switch v := from.(type) {
 	case *sql.DB:
-		rawVersion, err = VersionStringFromDB(from.(*sql.DB))
+		rawVersion, err = VersionStringFromDB(v)
+		if err != nil {
+			return semver.Version{}, xerrors.Errorf("getting version from database: %w", err)
+		}
 	case string:
-		rawVersion, err =  VersionStringFromGPHome(from.(string))
+		rawVersion, err =  VersionStringFromGPHome(v)
+		if err != nil {
+			return semver.Version{}, xerrors.Errorf("getting version from GPHOME: %w", err)
+	}
 	default:
 		return semver.Version{}, xerrors.Errorf("unexpected type %T", from)
 	}

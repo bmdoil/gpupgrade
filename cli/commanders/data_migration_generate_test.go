@@ -52,7 +52,19 @@ func TestGenerateDataMigrationScripts(t *testing.T) {
 		}
 		defer utils.ResetSystemFunctions()
 
-		err := commanders.GenerateDataMigrationScripts(step.DevNullStream, false, "", 0, "", "", fstest.MapFS{})
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("couldn't create sqlmock: %v", err)
+		}
+		defer testutils.FinishMock(mock, t)
+	
+		conn := &greenplum.Connection{DB: db}
+		greenplum.SetNewConnectionFunction(func(connURI string, numConns int32) (*greenplum.Connection, error) {
+			return conn, nil
+		})
+		defer greenplum.ResetNewConnectionFunction()
+
+		err = commanders.GenerateDataMigrationScripts(step.DevNullStream, false, "", 0, "", "", fstest.MapFS{})
 		if !errors.Is(err, os.ErrPermission) {
 			t.Errorf("got error %#v want %#v", err, os.ErrPermission)
 		}
@@ -67,9 +79,21 @@ func TestGenerateDataMigrationScripts(t *testing.T) {
 		resetStdin := testutils.SetStdin(t, "c\n")
 		defer resetStdin()
 
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("couldn't create sqlmock: %v", err)
+		}
+		defer testutils.FinishMock(mock, t)
+	
+		conn := &greenplum.Connection{DB: db}
+		greenplum.SetNewConnectionFunction(func(connURI string, numConns int32) (*greenplum.Connection, error) {
+			return conn, nil
+		})
+		defer greenplum.ResetNewConnectionFunction()
+
 		outputDirFS := fstest.MapFS{"current": {Mode: os.ModeDir}}
 
-		err := commanders.GenerateDataMigrationScripts(step.DevNullStream, false, "", 0, "", "", outputDirFS)
+		err = commanders.GenerateDataMigrationScripts(step.DevNullStream, false, "", 0, "", "", outputDirFS)
 		if err != nil {
 			t.Errorf("unexpected error: %#v", err)
 		}
@@ -87,7 +111,19 @@ func TestGenerateDataMigrationScripts(t *testing.T) {
 		}
 		defer utils.ResetSystemFunctions()
 
-		err := commanders.GenerateDataMigrationScripts(step.DevNullStream, false, "", 0, "", "", fstest.MapFS{})
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("couldn't create sqlmock: %v", err)
+		}
+		defer testutils.FinishMock(mock, t)
+	
+		conn := &greenplum.Connection{DB: db}
+		greenplum.SetNewConnectionFunction(func(connURI string, numConns int32) (*greenplum.Connection, error) {
+			return conn, nil
+		})
+		defer greenplum.ResetNewConnectionFunction()
+
+		err = commanders.GenerateDataMigrationScripts(step.DevNullStream, false, "", 0, "", "", fstest.MapFS{})
 		if !errors.Is(err, expected) {
 			t.Errorf("got %v want %v", err, expected)
 		}
@@ -245,10 +281,10 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		defer testutils.FinishMock(mock, t)
 
 		conn := &greenplum.Connection{DB: db}
-		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+		greenplum.SetNewConnectionFunction(func(connURI string, numConns int32) (*greenplum.Connection, error) {
 			return conn, nil
 		})
-		defer commanders.ResetBootstrapConnectionFunction()
+		defer greenplum.ResetNewConnectionFunction()
 
 		outputDir := testutils.GetTempDir(t, "")
 		defer testutils.MustRemoveAll(t, outputDir)
@@ -321,10 +357,10 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		defer testutils.FinishMock(mock, t)
 
 		conn := &greenplum.Connection{DB: db}
-		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+		greenplum.SetNewConnectionFunction(func(connURI string, numConns int32) (*greenplum.Connection, error) {
 			return conn, nil
 		})
-		defer commanders.ResetBootstrapConnectionFunction()
+		defer greenplum.ResetNewConnectionFunction()
 
 		expectPgDatabaseToReturn(mock).WillReturnRows(sqlmock.NewRows([]string{"datname", "quoted_datname"}).AddRow("postgres", "postgres"))
 
@@ -356,10 +392,10 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		defer testutils.FinishMock(mock, t)
 
 		conn := &greenplum.Connection{DB: db}
-		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+		greenplum.SetNewConnectionFunction(func(connURI string, numConns int32) (*greenplum.Connection, error) {
 			return conn, nil
 		})
-		defer commanders.ResetBootstrapConnectionFunction()
+		defer greenplum.ResetNewConnectionFunction()
 
 		expectPgDatabaseToReturn(mock).WillReturnRows(sqlmock.NewRows([]string{"datname", "quoted_datname"}).AddRow("postgres", "postgres"))
 
@@ -394,10 +430,10 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		defer testutils.FinishMock(mock, t)
 
 		conn := &greenplum.Connection{DB: db}
-		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+		greenplum.SetNewConnectionFunction(func(connURI string, numConns int32) (*greenplum.Connection, error) {
 			return conn, nil
 		})
-		defer commanders.ResetBootstrapConnectionFunction()
+		defer greenplum.ResetNewConnectionFunction()
 
 		expectPgDatabaseToReturn(mock).WillReturnRows(sqlmock.NewRows([]string{"datname", "quoted_datname"}).AddRow("postgres", "postgres"))
 

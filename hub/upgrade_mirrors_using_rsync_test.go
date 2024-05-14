@@ -18,7 +18,7 @@ import (
 )
 
 func TestRsyncMirrorDataDirsOnSegments(t *testing.T) {
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
@@ -27,7 +27,7 @@ func TestRsyncMirrorDataDirsOnSegments(t *testing.T) {
 		{DbID: 6, ContentID: 1, Hostname: "sdw1", DataDir: "/data/dbfast_mirror2/seg2", Port: 25436, Role: greenplum.MirrorRole},
 	})
 
-	intermediate := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	intermediate := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg.HqtFHX54y0o.-1", Port: 50432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby.HqtFHX54y0o", Port: 50433, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg.HqtFHX54y0o.1", Port: 50434, Role: greenplum.PrimaryRole},
@@ -120,7 +120,7 @@ func TestRsyncMirrorDataDirsOnSegments(t *testing.T) {
 }
 
 func TestRsyncAndRenameMirrorTablespacesOnSegments(t *testing.T) {
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
@@ -130,7 +130,7 @@ func TestRsyncAndRenameMirrorTablespacesOnSegments(t *testing.T) {
 	})
 	source.Tablespaces = testutils.CreateTablespaces()
 
-	intermediate := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	intermediate := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg.HqtFHX54y0o.-1", Port: 50432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby.HqtFHX54y0o", Port: 50433, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg.HqtFHX54y0o.1", Port: 50434, Role: greenplum.PrimaryRole},
@@ -220,7 +220,7 @@ func TestRsyncAndRenameMirrorTablespacesOnSegments(t *testing.T) {
 }
 
 func TestRenameMirrorTablespacesOnSegments(t *testing.T) {
-	source := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
@@ -230,7 +230,7 @@ func TestRenameMirrorTablespacesOnSegments(t *testing.T) {
 	})
 	source.Tablespaces = testutils.CreateTablespaces()
 
-	intermediate := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	intermediate := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg.HqtFHX54y0o.-1", Port: 50432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby.HqtFHX54y0o", Port: 50433, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg.HqtFHX54y0o.1", Port: 50434, Role: greenplum.PrimaryRole},

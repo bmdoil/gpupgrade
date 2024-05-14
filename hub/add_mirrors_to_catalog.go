@@ -10,30 +10,9 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/greenplum-db/gpupgrade/greenplum"
-	"github.com/greenplum-db/gpupgrade/utils/errorlist"
 )
 
-func addMirrorsToCatalog(intermediate *greenplum.Cluster) error {
-	options := []greenplum.Option{
-		greenplum.UtilityMode(),
-		greenplum.AllowSystemTableMods(),
-	}
-
-	err := intermediate.Connect(options...)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if cErr := intermediate.Connection.Close(); cErr != nil {
-			err = errorlist.Append(err, cErr)
-		}
-	}()
-
-	return AddMirrorsToGpSegmentConfiguration(intermediate)
-}
-
-func AddMirrorsToGpSegmentConfiguration(intermediate *greenplum.Cluster) (err error) {
+func AddMirrorsToCatalog(intermediate *greenplum.Cluster) error {
 	tx, err := intermediate.Connection.DB.Begin()
 	if err != nil {
 		return xerrors.Errorf("begin transaction: %w", err)

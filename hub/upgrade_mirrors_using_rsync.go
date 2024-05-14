@@ -62,7 +62,7 @@ func UpgradeMirrorsUsingRsync(agentConns []*idl.Connection, source *greenplum.Cl
 		return err
 	}
 
-	if err := addMirrorsToCatalog(intermediate); err != nil {
+	if err := AddMirrorsToCatalog(intermediate); err != nil {
 		return err
 	}
 

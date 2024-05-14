@@ -66,11 +66,11 @@ func TestDeleteSegmentDataDirs(t *testing.T) {
 				{AgentClient: standbyClient, Hostname: "standby"},
 			}
 
-			intermediate := hub.MustCreateCluster(t, append(primarySegConfigs, greenplum.SegConfig{ContentID: -1, DbID: 0, Port: 25431, Hostname: "coordinator", DataDir: "/data/qddir", Role: greenplum.PrimaryRole}))
+			intermediate := greenplum.MustCreateCluster(t, append(primarySegConfigs, greenplum.SegConfig{ContentID: -1, DbID: 0, Port: 25431, Hostname: "coordinator", DataDir: "/data/qddir", Role: greenplum.PrimaryRole}))
 
 			err := hub.DeleteCoordinatorAndPrimaryDataDirectories(step.DevNullStream, agentConns, intermediate)
 			if err != nil {
-				t.Errorf("unexpected err %#v", err)
+				t.Errorf("unexpected err %s", err.Error())
 			}
 		})
 
@@ -96,7 +96,7 @@ func TestDeleteSegmentDataDirs(t *testing.T) {
 				{AgentClient: sdw2ClientFailed, Hostname: "sdw2"},
 			}
 
-			intermediate := hub.MustCreateCluster(t, append(primarySegConfigs, greenplum.SegConfig{ContentID: -1, DbID: 0, Port: 25431, Hostname: "coordinator", DataDir: "/data/qddir", Role: greenplum.PrimaryRole}))
+			intermediate := greenplum.MustCreateCluster(t, append(primarySegConfigs, greenplum.SegConfig{ContentID: -1, DbID: 0, Port: 25431, Hostname: "coordinator", DataDir: "/data/qddir", Role: greenplum.PrimaryRole}))
 
 			err := hub.DeleteCoordinatorAndPrimaryDataDirectories(step.DevNullStream, agentConns, intermediate)
 
@@ -108,7 +108,7 @@ func TestDeleteSegmentDataDirs(t *testing.T) {
 }
 
 func TestDeleteTablespaceDirectories(t *testing.T) {
-	target := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	target := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir", Role: greenplum.PrimaryRole},
 		{DbID: 6, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Role: greenplum.MirrorRole},
 		{DbID: 2, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Role: greenplum.PrimaryRole},

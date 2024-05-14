@@ -133,7 +133,7 @@ func TestUpdateDataDirectories(t *testing.T) {
 
 	conf := new(config.Config)
 
-	conf.Source = hub.MustCreateCluster(t, greenplum.SegConfigs{
+	conf.Source = greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, Hostname: "sdw1", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole},
 		{ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Role: greenplum.MirrorRole},
 
@@ -148,7 +148,7 @@ func TestUpdateDataDirectories(t *testing.T) {
 		{ContentID: 3, Hostname: "sdw2", DataDir: "/data/dbfast_mirror2/seg4", Role: greenplum.MirrorRole},
 	})
 
-	conf.Intermediate = hub.MustCreateCluster(t, greenplum.SegConfigs{
+	conf.Intermediate = greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, Hostname: "sdw1", DataDir: "/data/qddir/seg-1_123ABC-1", Role: greenplum.PrimaryRole},
 		{ContentID: -1, Hostname: "standby", DataDir: "/data/standby_123ABC", Role: greenplum.MirrorRole},
 
@@ -173,11 +173,11 @@ func TestUpdateDataDirectories(t *testing.T) {
 		sourceDataDir, targetDataDir, cleanup := testutils.MustCreateDataDirs(t)
 		defer cleanup(t)
 
-		conf.Source = hub.MustCreateCluster(t, greenplum.SegConfigs{
+		conf.Source = greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, Hostname: "sdw1", DataDir: sourceDataDir, Role: greenplum.PrimaryRole},
 		})
 
-		conf.Intermediate = hub.MustCreateCluster(t, greenplum.SegConfigs{
+		conf.Intermediate = greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, Hostname: "sdw1", DataDir: targetDataDir, Role: greenplum.PrimaryRole},
 		})
 

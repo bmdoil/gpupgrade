@@ -32,7 +32,7 @@ import (
 func TestRsyncCoordinatorAndPrimaries(t *testing.T) {
 	testlog.SetupTestLogger()
 
-	cluster := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	cluster := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir", Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Role: greenplum.PrimaryRole},
@@ -301,7 +301,7 @@ func TestRestoreCoordinatorAndPrimariesPgControl(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		cluster := hub.MustCreateCluster(t, greenplum.SegConfigs{
+		cluster := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir", Role: greenplum.PrimaryRole},
 			{ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Role: greenplum.MirrorRole},
 			{ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Role: greenplum.PrimaryRole},
@@ -356,7 +356,7 @@ func TestRestoreCoordinatorAndPrimariesPgControl(t *testing.T) {
 		defer ctrl.Finish()
 
 		coordinatorDir := testutils.GetTempDir(t, "")
-		cluster := hub.MustCreateCluster(t, greenplum.SegConfigs{
+		cluster := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, Hostname: "coordinator", DataDir: coordinatorDir, Role: greenplum.PrimaryRole},
 			{ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Role: greenplum.MirrorRole},
 			{ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Role: greenplum.PrimaryRole},

@@ -17,7 +17,7 @@ import (
 func TestWaitForSegments(t *testing.T) {
 	timeout := 30 * time.Second
 
-	target := MustCreateCluster(t, greenplum.SegConfigs{
+	target := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 		{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 		{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
@@ -58,7 +58,7 @@ func TestWaitForSegments(t *testing.T) {
 	})
 
 	t.Run("skips pg_stat_replication if there is no standby", func(t *testing.T) {
-		target := MustCreateCluster(t, greenplum.SegConfigs{
+		target := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 			{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
 			{DbID: 4, ContentID: 0, Hostname: "sdw2", DataDir: "/data/dbfast_mirror1/seg1", Port: 25434, Role: greenplum.MirrorRole},
@@ -77,7 +77,7 @@ func TestWaitForSegments(t *testing.T) {
 	})
 
 	t.Run("does not check mode=s if there are no mirrors but has a standby", func(t *testing.T) {
-		target := MustCreateCluster(t, greenplum.SegConfigs{
+		target := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 			{DbID: 2, ContentID: -1, Hostname: "standby", DataDir: "/data/standby", Port: 16432, Role: greenplum.MirrorRole},
 			{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
@@ -96,7 +96,7 @@ func TestWaitForSegments(t *testing.T) {
 	})
 
 	t.Run("skips mode=s and pg_stat_replication checks if there are no mirrors and no standby", func(t *testing.T) {
-		target := MustCreateCluster(t, greenplum.SegConfigs{
+		target := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{DbID: 1, ContentID: -1, Hostname: "coordinator", DataDir: "/data/qddir/seg-1", Port: 15432, Role: greenplum.PrimaryRole},
 			{DbID: 3, ContentID: 0, Hostname: "sdw1", DataDir: "/data/dbfast1/seg1", Port: 25433, Role: greenplum.PrimaryRole},
 			{DbID: 5, ContentID: 1, Hostname: "sdw2", DataDir: "/data/dbfast2/seg2", Port: 25435, Role: greenplum.PrimaryRole},

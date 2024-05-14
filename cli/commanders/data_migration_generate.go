@@ -47,7 +47,7 @@ func GenerateDataMigrationScripts(streams step.OutStreams, nonInteractive bool, 
 		return fmt.Errorf("failed to find seed scripts for Greenplum version %s under %q", version, seedDir)
 	}
 
-	conn, err := bootstrapConnectionFunc(greenplum.Port(port))
+	conn, err := greenplum.NewConnectionFunc(greenplum.URI(greenplum.Port(port)), 1)
 	if err != nil {
 		return err
 	}
@@ -128,18 +128,6 @@ func GenerateDataMigrationScripts(streams step.OutStreams, nonInteractive bool, 
 	return nil
 }
 
-var bootstrapConnectionFunc = greenplum.NewConnection
-
-// XXX: for internal testing only
-func SetBootstrapConnectionFunction(connectionFunc func(options ...greenplum.Option) (*greenplum.Connection, error)) {
-	bootstrapConnectionFunc = connectionFunc
-}
-
-// XXX: for internal testing only
-func ResetBootstrapConnectionFunction() {
-	bootstrapConnectionFunc = greenplum.NewConnection
-}
-
 func ArchiveDataMigrationScriptsPrompt(streams step.OutStreams, nonInteractive bool, reader *bufio.Reader, outputDirFS fs.FS, outputDir string) error {
 	outputDirEntries, err := utils.System.ReadDirFS(outputDirFS, ".")
 	if err != nil {
@@ -171,15 +159,15 @@ func ArchiveDataMigrationScriptsPrompt(streams step.OutStreams, nonInteractive b
 %s located in
 %s
 
-Archive and re-generate the data migration scripts if potentially 
-new problematic objects have been added since the scripts were 
-first generated. If unsure its safe to archive and re-generate 
+Archive and re-generate the data migration scripts if potentially
+new problematic objects have been added since the scripts were
+first generated. If unsure its safe to archive and re-generate
 the scripts.
 
 The generator takes a "snapshot" of the current source cluster
-to generate the scripts. If new "problematic" objects are added 
-after the generator was run, then the previously generated 
-scripts are outdated. The generator will need to be re-run 
+to generate the scripts. If new "problematic" objects are added
+after the generator was run, then the previously generated
+scripts are outdated. The generator will need to be re-run
 to detect the newly added objects.`, currentDirModTime.Format(time.RFC1123Z), utils.Bold.Sprint(currentDir))
 
 		input := "a"

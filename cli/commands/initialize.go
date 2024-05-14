@@ -184,7 +184,7 @@ func initialize() *cobra.Command {
 					return err
 				}
 
-				conn, err := greenplum.NewConnection(greenplum.Port(sourcePort))
+				conn, err := greenplum.NewConnection(greenplum.URI(greenplum.Port(sourcePort)), 1)
 				if err != nil {
 					return err
 				}

@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/greenplum-db/gpupgrade/greenplum"
 	"github.com/greenplum-db/gpupgrade/testutils/exectest"
 )
 
@@ -25,17 +24,4 @@ func init() {
 // Enable exectest.NewCommand mocking.
 func TestMain(m *testing.M) {
 	os.Exit(exectest.Run(m))
-}
-
-// MustCreateCluster creates a utils.Cluster and calls t.Fatalf() if there is
-// any error.
-func MustCreateCluster(t *testing.T, segments greenplum.SegConfigs) *greenplum.Cluster {
-	t.Helper()
-
-	cluster, err := greenplum.NewCluster(segments)
-	if err != nil {
-		t.Fatalf("%+v", err)
-	}
-
-	return &cluster
 }

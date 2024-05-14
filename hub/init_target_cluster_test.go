@@ -188,7 +188,7 @@ func TestWriteSegmentArray(t *testing.T) {
 	}
 
 	t.Run("renders the config file as expected", func(t *testing.T) {
-		config := hub.MustCreateCluster(t, greenplum.SegConfigs{
+		config := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, DbID: 1, Hostname: "mdw", Address: "mdw-1", DataDir: "/data/qddir_upgrade/seg-1", Role: greenplum.PrimaryRole, Port: 15433},
 			{ContentID: 0, DbID: 2, Hostname: "sdw1", Address: "sdw1-1", DataDir: "/data/dbfast1_upgrade/seg1", Role: greenplum.PrimaryRole, Port: 15434},
 			{ContentID: 1, DbID: 3, Hostname: "sdw2", Address: "sdw2-2", DataDir: "/data/dbfast2_upgrade/seg2", Role: greenplum.PrimaryRole, Port: 15434},
@@ -213,7 +213,7 @@ func TestRunInitsystemForTargetCluster(t *testing.T) {
 	resetEnv := testutils.SetEnv(t, "GPUPGRADE_HOME", stateDir)
 	defer resetEnv()
 
-	intermediate := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	intermediate := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, DbID: 1, Hostname: "mdw", DataDir: "/data/qddir_upgrade/seg-1", Role: greenplum.PrimaryRole, Port: 15433},
 	})
 	intermediate.GPHome = "/usr/local/greenplum-db"
@@ -368,7 +368,7 @@ func TestRunInitsystemForTargetCluster(t *testing.T) {
 func TestGetCatalogVersion(t *testing.T) {
 	testlog.SetupTestLogger()
 
-	intermediate := hub.MustCreateCluster(t, greenplum.SegConfigs{
+	intermediate := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 		{ContentID: -1, DbID: 1, Hostname: "mdw", DataDir: "/data/qddir_upgrade/seg-1", Role: greenplum.PrimaryRole, Port: 15433},
 	})
 

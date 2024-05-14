@@ -228,7 +228,7 @@ func TestUILoop(t *testing.T) {
 	})
 
 	t.Run("processes responses successfully", func(t *testing.T) {
-		source := MustCreateCluster(t, greenplum.SegConfigs{
+		source := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, DbID: 1, Hostname: "mdw", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole, Port: 15432},
 			{ContentID: -1, DbID: 8, Hostname: "smdw", DataDir: "/data/qddir/seg-1", Role: greenplum.MirrorRole, Port: 16432},
 			{ContentID: 0, DbID: 2, Hostname: "sdw1", DataDir: "/data/dbfast1/seg0", Role: greenplum.PrimaryRole, Port: 25432},
@@ -238,7 +238,7 @@ func TestUILoop(t *testing.T) {
 		source.Destination = idl.ClusterDestination_source
 		source.Version = semver.MustParse("5.0.0")
 
-		target := MustCreateCluster(t, greenplum.SegConfigs{
+		target := greenplum.MustCreateCluster(t, greenplum.SegConfigs{
 			{ContentID: -1, DbID: 1, Hostname: "mdw", DataDir: "/data/qddir/seg-1", Role: greenplum.PrimaryRole, Port: 6000},
 			{ContentID: -1, DbID: 8, Hostname: "smdw", DataDir: "/data/qddir/seg-1", Role: greenplum.MirrorRole, Port: 6001},
 			{ContentID: 0, DbID: 2, Hostname: "sdw1", DataDir: "/data/dbfast1/seg0", Role: greenplum.PrimaryRole, Port: 6002},

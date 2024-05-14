@@ -6,7 +6,7 @@ package greenplum
 import (
 	"bytes"
 	"database/sql"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os/exec"
@@ -119,8 +119,7 @@ func NewCluster(segments SegConfigs) (Cluster, error) {
 
 func (c *Cluster) Encode() ([]byte, error) {
 	var buffer bytes.Buffer
-	encoder := gob.NewEncoder(&buffer)
-
+	encoder := json.NewEncoder(&buffer)
 	err := encoder.Encode(c)
 	if err != nil {
 		return nil, err
@@ -130,7 +129,7 @@ func (c *Cluster) Encode() ([]byte, error) {
 }
 
 func DecodeCluster(input []byte) (*Cluster, error) {
-	decoder := gob.NewDecoder(bytes.NewBuffer(input))
+	decoder := json.NewDecoder(bytes.NewBuffer(input))
 
 	cluster := &Cluster{}
 	err := decoder.Decode(cluster)
@@ -441,14 +440,57 @@ func (c *Cluster) RunCmd(streams step.OutStreams, command string, args ...string
 	return cmd.Run()
 }
 
+func (c *Cluster) parseOptions(options ...Option) (string, int32, error) {
+	opts := newOptionList(options...)
+	var mode string
+
+	database := "template1"
+	if opts.database != "" {
+		database = opts.database
+	}
+
+	port := c.CoordinatorPort()
+	if opts.port > 0 {
+		port = opts.port
+	}
+
+	searchPath := ""
+	if opts.searchPath != "" {
+		searchPath = opts.searchPath
+	}
+
+	if opts.utilityMode {
+		mode += "&gp_session_role=utility"
+	}
+
+	if opts.allowSystemTableMods {
+		mode += "&allow_system_table_mods=true"
+	}
+
+	numConns := int32(1)
+	if opts.numConns > 0 {
+		numConns = opts.numConns
+	}
+
+	connURI := fmt.Sprintf("postgresql://localhost:%d/%s?search_path=%s%s", port, database, searchPath, mode)
+
+	return connURI, numConns, nil
+}
+
 // Establish a cluster connection pool given the provided options
 // Currently we only support one cluster connection pool at a time.
 func (c *Cluster) Connect(options ...Option) error {
 	var err error
-	if c.Connection != nil {
-		return fmt.Errorf("cluster connection '%s' already established", c.Connection.URI)
+	connURI, numConns, err := c.parseOptions(options...)
+	if err != nil {
+		return err
 	}
-	c.Connection, err = NewConnection(options...)
+		
+	// Recycle the connection if it is already established
+	if c.Connection != nil {
+		c.CloseConnection()
+	}
+	c.Connection, err = NewConnectionFunc(connURI, numConns)
 	if err != nil {
 		return err
 	}

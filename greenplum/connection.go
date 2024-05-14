@@ -4,6 +4,7 @@
 package greenplum
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -13,51 +14,21 @@ import (
 
 type Connection struct {
 	URI string
-	DB  *sql.DB
-	Pool *pgxpool.Pool
-	Options *optionList
+	DB  *sql.DB `json:"-"`
+	Pool *pgxpool.Pool `json:"-"`
+	NumConns int32
 }
 
-func NewConnection(options ...Option) (*Connection, error) {
-	opts := newOptionList(options...)
-	var mode string
-
-	if opts.port == 0 {
-		return nil, fmt.Errorf("port is required to create a new connection")
-	}
-
-	database := "template1"
-	if opts.database != "" {
-		database = opts.database
-	}
-
-	searchPath := ""
-	if opts.searchPath != "" {
-		searchPath = opts.searchPath
-	}
-
-	if opts.utilityMode {
-		mode += "&gp_session_role=utility"
-	}
-
-	if opts.allowSystemTableMods {
-		mode += "&allow_system_table_mods=true"
-	}
-
-	connURI := fmt.Sprintf("postgresql://localhost:%d/%s?search_path=%s%s", database, opts.port, searchPath, mode)
+func NewConnection(connURI string, numConns int32) (*Connection, error) {
 	
 	config, err := pgxpool.ParseConfig(connURI)
 	if err != nil {
 		return nil, err
 	}
 
-	pool, err := pgxpool.NewWithConfig(nil, config)
+	pool, err := pgxpool.NewWithConfig(context.TODO(), config)
 	if err != nil {
 		return nil, err
-	}
-
-	if opts.numConns > 0 {
-		pool.Config().MaxConns = opts.numConns
 	}
 
 	db := stdlib.OpenDBFromPool(pool)
@@ -66,14 +37,22 @@ func NewConnection(options ...Option) (*Connection, error) {
 		URI: connURI,
 		DB: db,
 		Pool: pool,
-		Options: opts,
+		NumConns: numConns,
 	}, nil
 }
 
 func (c *Connection) Close() error {
-	c.Pool.Close()
-	c.Pool = nil
-	return c.DB.Close()
+	if c.Pool != nil {
+		c.Pool.Close()
+		c.Pool = nil
+		return c.DB.Close()
+	}
+	return nil
+}
+
+func URI(options ...Option) string {
+	o := newOptionList(options...)
+	return fmt.Sprintf("postgresql://localhost:%d/%s?search_path=%s", o.port, o.database, o.searchPath)
 }
 
 type Option func(*optionList)
