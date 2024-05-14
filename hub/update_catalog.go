@@ -14,22 +14,17 @@ import (
 )
 
 func UpdateCatalog(intermediate *greenplum.Cluster, target *greenplum.Cluster) error {
-	options := []greenplum.Option{
-		greenplum.UtilityMode(),
-		greenplum.AllowSystemTableMods(),
-	}
-
-	db, err := sql.Open("pgx", intermediate.Connection(options...))
+	err := intermediate.Connect(greenplum.UtilityMode(), greenplum.AllowSystemTableMods())
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if cErr := db.Close(); cErr != nil {
+		if cErr := intermediate.Connection.Close(); cErr != nil {
 			err = errorlist.Append(err, cErr)
 		}
 	}()
 
-	return UpdateGpSegmentConfiguration(db, target)
+	return UpdateGpSegmentConfiguration(intermediate.Connection.DB, target)
 }
 
 func UpdateGpSegmentConfiguration(db *sql.DB, target *greenplum.Cluster) (err error) {

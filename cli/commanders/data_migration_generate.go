@@ -22,7 +22,6 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/greenplum-db/gpupgrade/greenplum"
-	"github.com/greenplum-db/gpupgrade/greenplum/connection"
 	"github.com/greenplum-db/gpupgrade/idl"
 	"github.com/greenplum-db/gpupgrade/step"
 	"github.com/greenplum-db/gpupgrade/upgrade"
@@ -48,12 +47,12 @@ func GenerateDataMigrationScripts(streams step.OutStreams, nonInteractive bool, 
 		return fmt.Errorf("failed to find seed scripts for Greenplum version %s under %q", version, seedDir)
 	}
 
-	db, err := bootstrapConnectionFunc(idl.ClusterDestination_source, gphome, port)
+	conn, err := bootstrapConnectionFunc(greenplum.Port(port))
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if cErr := db.Close(); cErr != nil {
+		if cErr := conn.Close(); cErr != nil {
 			err = errorlist.Append(err, cErr)
 		}
 	}()
@@ -72,7 +71,7 @@ func GenerateDataMigrationScripts(streams step.OutStreams, nonInteractive bool, 
 		return err
 	}
 
-	databases, err := GetDatabases(db, utils.System.DirFS(seedDir))
+	databases, err := GetDatabases(conn.DB, utils.System.DirFS(seedDir))
 	if err != nil {
 		return err
 	}
@@ -129,16 +128,16 @@ func GenerateDataMigrationScripts(streams step.OutStreams, nonInteractive bool, 
 	return nil
 }
 
-var bootstrapConnectionFunc = connection.Bootstrap
+var bootstrapConnectionFunc = greenplum.NewConnection
 
 // XXX: for internal testing only
-func SetBootstrapConnectionFunction(connectionFunc func(destination idl.ClusterDestination, gphome string, port int) (*sql.DB, error)) {
+func SetBootstrapConnectionFunction(connectionFunc func(options ...greenplum.Option) (*greenplum.Connection, error)) {
 	bootstrapConnectionFunc = connectionFunc
 }
 
 // XXX: for internal testing only
 func ResetBootstrapConnectionFunction() {
-	bootstrapConnectionFunc = connection.Bootstrap
+	bootstrapConnectionFunc = greenplum.NewConnection
 }
 
 func ArchiveDataMigrationScriptsPrompt(streams step.OutStreams, nonInteractive bool, reader *bufio.Reader, outputDirFS fs.FS, outputDir string) error {

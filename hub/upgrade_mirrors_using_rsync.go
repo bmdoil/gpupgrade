@@ -5,7 +5,6 @@ package hub
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,17 +16,17 @@ import (
 )
 
 func UpgradeMirrorsUsingRsync(agentConns []*idl.Connection, source *greenplum.Cluster, intermediate *greenplum.Cluster, useHbaHostnames bool) error {
-	db, err := sql.Open("pgx", intermediate.Connection())
+	err := intermediate.Connect()
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if cErr := db.Close(); cErr != nil {
+		if cErr := intermediate.Connection.Close(); cErr != nil {
 			err = errorlist.Append(err, cErr)
 		}
 	}()
 
-	if err := CreateReplicationSlots(db); err != nil {
+	if err := CreateReplicationSlots(intermediate.Connection.DB); err != nil {
 		return err
 	}
 

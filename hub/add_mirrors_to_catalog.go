@@ -19,21 +19,22 @@ func addMirrorsToCatalog(intermediate *greenplum.Cluster) error {
 		greenplum.AllowSystemTableMods(),
 	}
 
-	db, err := sql.Open("pgx", intermediate.Connection(options...))
+	err := intermediate.Connect(options...)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
-		if cErr := db.Close(); cErr != nil {
+		if cErr := intermediate.Connection.Close(); cErr != nil {
 			err = errorlist.Append(err, cErr)
 		}
 	}()
 
-	return AddMirrorsToGpSegmentConfiguration(db, intermediate)
+	return AddMirrorsToGpSegmentConfiguration(intermediate)
 }
 
-func AddMirrorsToGpSegmentConfiguration(db *sql.DB, intermediate *greenplum.Cluster) (err error) {
-	tx, err := db.Begin()
+func AddMirrorsToGpSegmentConfiguration(intermediate *greenplum.Cluster) (err error) {
+	tx, err := intermediate.Connection.DB.Begin()
 	if err != nil {
 		return xerrors.Errorf("begin transaction: %w", err)
 	}

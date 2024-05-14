@@ -162,6 +162,8 @@ func TestRevert(t *testing.T) {
 
 func testRevertAfterExecute(t *testing.T, mode idl.Mode, upgradeFailure UpgradeFailure) {
 	source := acceptance.GetSourceCluster(t)
+	source.Connect(greenplum.Database("postgres"))
+	defer source.CloseConnection()
 
 	// setup upgrade failure
 	path := upgradeFailure.setup(t, source)
@@ -173,8 +175,8 @@ func testRevertAfterExecute(t *testing.T, mode idl.Mode, upgradeFailure UpgradeF
 
 	// add a table
 	table := "public.should_be_reverted"
-	testutils.MustExecuteSQL(t, source.Connection(greenplum.Database("postgres")), fmt.Sprintf(`CREATE TABLE %s (a int); INSERT INTO %s VALUES (1), (2), (3);`, table, table))
-	defer testutils.MustExecuteSQL(t, source.Connection(greenplum.Database("postgres")), fmt.Sprintf(`DROP TABLE %s;`, table))
+	testutils.MustExecuteSQL(t, *source.Connection, fmt.Sprintf(`CREATE TABLE %s (a int); INSERT INTO %s VALUES (1), (2), (3);`, table, table))
+	defer testutils.MustExecuteSQL(t, *source.Connection, fmt.Sprintf(`DROP TABLE %s;`, table))
 
 	tempDir := testutils.GetTempDir(t, "")
 	defer testutils.MustRemoveAll(t, tempDir)
@@ -196,9 +198,11 @@ func testRevertAfterExecute(t *testing.T, mode idl.Mode, upgradeFailure UpgradeF
 
 	if upgradeSucceeded {
 		intermediate := acceptance.GetIntermediateCluster(t)
+		intermediate.Connect(greenplum.Database("postgres"))
+		defer intermediate.CloseConnection()
 
 		// modify a table on the intermediate cluster to ensure it is properly reverted
-		testutils.MustExecuteSQL(t, intermediate.Connection(greenplum.Database("postgres")), fmt.Sprintf(`TRUNCATE TABLE %s;`, table))
+		testutils.MustExecuteSQL(t, *intermediate.Connection, fmt.Sprintf(`TRUNCATE TABLE %s;`, table))
 
 		// modify tablespace data on the intermediate cluster to ensure it is properly reverted
 		testutils.MustTruncateTablespaces(t, intermediate)
@@ -219,7 +223,7 @@ func testRevertAfterExecute(t *testing.T, mode idl.Mode, upgradeFailure UpgradeF
 	acceptance.VerifyMarkerFilesOnPrimaries(t, source.Primaries, mode)
 
 	// verify the table modifications were reverted
-	rows := testutils.MustQueryRow(t, source.Connection(greenplum.Database("postgres")), fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table))
+	rows := testutils.MustQueryRow(t, *source.Connection, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table))
 	expected := 3
 	if rows != expected {
 		t.Fatalf("got %d want %d rows", rows, expected)
@@ -324,13 +328,18 @@ func noUpgradeFailureToRevert(t *testing.T, source greenplum.Cluster, path strin
 func setupCoordinatorUpgradeFailure(t *testing.T, source greenplum.Cluster) string {
 	t.Helper()
 
-	conn := source.Connection(greenplum.Database("postgres"))
-	testutils.MustExecuteSQL(t, conn, `CREATE TABLE public.coordinator_failure (a int, b int); INSERT INTO public.coordinator_failure SELECT i, i FROM generate_series(1,10) i;`)
-	relfile := testutils.MustQueryRow(t, conn, `SELECT relfilenode FROM pg_class WHERE relname='coordinator_failure';`)
-	dbOid := testutils.MustQueryRow(t, conn, `SELECT oid FROM pg_database WHERE datname='postgres';`)
+	err := source.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer source.CloseConnection()
+
+	testutils.MustExecuteSQL(t, *source.Connection, `CREATE TABLE public.coordinator_failure (a int, b int); INSERT INTO public.coordinator_failure SELECT i, i FROM generate_series(1,10) i;`)
+	relfile := testutils.MustQueryRow(t, *source.Connection, `SELECT relfilenode FROM pg_class WHERE relname='coordinator_failure';`)
+	dbOid := testutils.MustQueryRow(t, *source.Connection, `SELECT oid FROM pg_database WHERE datname='postgres';`)
 
 	path := filepath.Join(source.CoordinatorDataDir(), "base", strconv.Itoa(dbOid), strconv.Itoa(relfile))
-	err := os.Rename(path, path+".bak")
+	err = os.Rename(path, path+".bak")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,26 +350,37 @@ func setupCoordinatorUpgradeFailure(t *testing.T, source greenplum.Cluster) stri
 func revertCoordinatorUpgradeFailure(t *testing.T, source greenplum.Cluster, path string) {
 	t.Helper()
 
-	err := os.Rename(path+".bak", path)
+	err := source.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer source.CloseConnection()
+
+	err = os.Rename(path+".bak", path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testutils.MustExecuteSQL(t, source.Connection(greenplum.Database("postgres")), `DROP TABLE IF EXISTS public.coordinator_failure;`)
+	testutils.MustExecuteSQL(t, *source.Connection, `DROP TABLE IF EXISTS public.coordinator_failure;`)
 }
 
 func setupPrimaryUpgradeFailure(t *testing.T, source greenplum.Cluster) string {
 	t.Helper()
 
-	conn := source.Connection(greenplum.Database("postgres"))
-	testutils.MustExecuteSQL(t, conn, `CREATE TABLE public.primary_failure (a int, b int); INSERT INTO public.primary_failure SELECT i, i FROM generate_series(1,10) i;`)
-	relfile := testutils.MustQueryRow(t, conn, `SELECT relfilenode FROM gp_dist_random('pg_class') WHERE relname='primary_failure' AND gp_segment_id=0;`)
-	dbOid := testutils.MustQueryRow(t, conn, `SELECT oid FROM gp_dist_random('pg_database') WHERE datname='postgres' AND gp_segment_id=0;`)
+	err := source.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer source.CloseConnection()
+
+	testutils.MustExecuteSQL(t, *source.Connection, `CREATE TABLE public.primary_failure (a int, b int); INSERT INTO public.primary_failure SELECT i, i FROM generate_series(1,10) i;`)
+	relfile := testutils.MustQueryRow(t, *source.Connection, `SELECT relfilenode FROM gp_dist_random('pg_class') WHERE relname='primary_failure' AND gp_segment_id=0;`)
+	dbOid := testutils.MustQueryRow(t, *source.Connection, `SELECT oid FROM gp_dist_random('pg_database') WHERE datname='postgres' AND gp_segment_id=0;`)
 
 	// NOTE: Before removing the relfile for primary_failure_tbl issue a checkpoint to flush the dirty buffers to disk.
 	// Later we have a CREATE DATABASE statement which indirectly creates a checkpoint and if the dirty buffers exist at
 	// that point the statement will fail.
-	testutils.MustExecuteSQL(t, conn, `CHECKPOINT;`)
+	testutils.MustExecuteSQL(t, *source.Connection, `CHECKPOINT;`)
 
 	path := filepath.Join(source.Primaries[0].DataDir, "base", strconv.Itoa(dbOid), strconv.Itoa(relfile))
 	testutils.MustMoveRemoteFile(t, source.Primaries[0].Hostname, path, path+".bak")
@@ -370,6 +390,12 @@ func setupPrimaryUpgradeFailure(t *testing.T, source greenplum.Cluster) string {
 func revertPrimaryUpgradeFailure(t *testing.T, source greenplum.Cluster, path string) {
 	t.Helper()
 
+	err := source.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer source.CloseConnection()
+
 	testutils.MustMoveRemoteFile(t, source.Primaries[0].Hostname, path+".bak", path)
-	testutils.MustExecuteSQL(t, source.Connection(greenplum.Database("postgres")), `DROP TABLE IF EXISTS public.primary_failure;`)
+	testutils.MustExecuteSQL(t, *source.Connection, `DROP TABLE IF EXISTS public.primary_failure;`)
 }

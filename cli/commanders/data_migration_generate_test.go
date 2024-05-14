@@ -5,7 +5,6 @@ package commanders_test
 
 import (
 	"bufio"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -245,8 +244,9 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		}
 		defer testutils.FinishMock(mock, t)
 
-		commanders.SetBootstrapConnectionFunction(func(destination idl.ClusterDestination, gphome string, port int) (*sql.DB, error) {
-			return db, nil
+		conn := &greenplum.Connection{DB: db}
+		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+			return conn, nil
 		})
 		defer commanders.ResetBootstrapConnectionFunction()
 
@@ -320,8 +320,9 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		}
 		defer testutils.FinishMock(mock, t)
 
-		commanders.SetBootstrapConnectionFunction(func(destination idl.ClusterDestination, gphome string, port int) (*sql.DB, error) {
-			return db, nil
+		conn := &greenplum.Connection{DB: db}
+		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+			return conn, nil
 		})
 		defer commanders.ResetBootstrapConnectionFunction()
 
@@ -354,8 +355,9 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		}
 		defer testutils.FinishMock(mock, t)
 
-		commanders.SetBootstrapConnectionFunction(func(destination idl.ClusterDestination, gphome string, port int) (*sql.DB, error) {
-			return db, nil
+		conn := &greenplum.Connection{DB: db}
+		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+			return conn, nil
 		})
 		defer commanders.ResetBootstrapConnectionFunction()
 
@@ -391,8 +393,9 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 		}
 		defer testutils.FinishMock(mock, t)
 
-		commanders.SetBootstrapConnectionFunction(func(destination idl.ClusterDestination, gphome string, port int) (*sql.DB, error) {
-			return db, nil
+		conn := &greenplum.Connection{DB: db}
+		commanders.SetBootstrapConnectionFunction(func(options ...greenplum.Option) (*greenplum.Connection, error) {
+			return conn, nil
 		})
 		defer commanders.ResetBootstrapConnectionFunction()
 

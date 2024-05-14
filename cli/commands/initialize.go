@@ -21,7 +21,6 @@ import (
 	"github.com/greenplum-db/gpupgrade/cli/commanders"
 	"github.com/greenplum-db/gpupgrade/config"
 	"github.com/greenplum-db/gpupgrade/greenplum"
-	"github.com/greenplum-db/gpupgrade/greenplum/connection"
 	"github.com/greenplum-db/gpupgrade/idl"
 	"github.com/greenplum-db/gpupgrade/step"
 	"github.com/greenplum-db/gpupgrade/upgrade"
@@ -185,17 +184,14 @@ func initialize() *cobra.Command {
 					return err
 				}
 
-				db, err := connection.Bootstrap(idl.ClusterDestination_source, sourceGPHome, sourcePort)
+				conn, err := greenplum.NewConnection(greenplum.Port(sourcePort))
 				if err != nil {
 					return err
 				}
-				defer func() {
-					if cErr := db.Close(); cErr != nil {
-						err = errorlist.Append(err, cErr)
-					}
-				}()
+				defer conn.Close()
+
 				conf, err := config.Create(
-					db, hubPort, agentPort,
+					conn.DB, hubPort, agentPort,
 					filepath.Clean(sourceGPHome),
 					filepath.Clean(targetGPHome),
 					mode, useHbaHostnames, parsedPorts, pgUpgradeJobs,

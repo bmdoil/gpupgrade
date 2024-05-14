@@ -102,9 +102,9 @@ func TestConnection(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			source.Version = c.version
 
-			actual := source.Connection(c.options...)
-			if actual != c.expected {
-				t.Errorf("got %q, want %q", actual, c.expected)
+			_ = source.Connect(c.options...)
+			if source.Connection.URI != c.expected {
+				t.Errorf("got %q, want %q", source.Connection.URI, c.expected)
 			}
 		})
 	}

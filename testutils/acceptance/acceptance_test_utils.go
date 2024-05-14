@@ -17,14 +17,12 @@ import (
 	"github.com/blang/semver/v4"
 
 	"github.com/greenplum-db/gpupgrade/greenplum"
-	"github.com/greenplum-db/gpupgrade/greenplum/connection"
 	"github.com/greenplum-db/gpupgrade/hub"
 	"github.com/greenplum-db/gpupgrade/idl"
 	"github.com/greenplum-db/gpupgrade/step"
 	"github.com/greenplum-db/gpupgrade/testutils"
 	"github.com/greenplum-db/gpupgrade/upgrade"
 	"github.com/greenplum-db/gpupgrade/utils"
-	"github.com/greenplum-db/gpupgrade/utils/errorlist"
 	"github.com/greenplum-db/gpupgrade/utils/rsync"
 )
 
@@ -262,17 +260,13 @@ func GetTempTargetCluster(t *testing.T) greenplum.Cluster {
 func getCluster(t *testing.T, gphome string, port int, destination idl.ClusterDestination) greenplum.Cluster {
 	t.Helper()
 
-	db, err := connection.Bootstrap(destination, gphome, port)
+	conn, err := greenplum.NewConnection(greenplum.Port(port))
 	if err != nil {
-		t.Fatalf("bootstraping db connection to %q %q %q: %v", destination, gphome, port, err)
+		t.Fatalf("bootstrapping db connection to %q %q %q: %v", destination, gphome, port, err)
 	}
-	defer func() {
-		if cErr := db.Close(); cErr != nil {
-			err = errorlist.Append(err, cErr)
-		}
-	}()
+	defer conn.Close()
 
-	cluster, err := greenplum.ClusterFromDB(db, gphome, destination)
+	cluster, err := greenplum.ClusterFromDB(conn.DB, gphome, destination)
 	if err != nil {
 		t.Fatalf("retrieve %s cluster configuration: %v", destination, err)
 	}

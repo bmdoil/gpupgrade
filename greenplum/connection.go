@@ -4,19 +4,26 @@
 package greenplum
 
 import (
+	"database/sql"
 	"fmt"
-	"log"
 
-	_ "github.com/jackc/pgx/v4"        // used indirectly as the database driver "pgx"
-	_ "github.com/jackc/pgx/v4/stdlib" // used indirectly as the database driver "pgx"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
-func (c *Cluster) Connection(options ...Option) string {
-	opts := newOptionList(options...)
+type Connection struct {
+	URI string
+	DB  *sql.DB
+	Pool *pgxpool.Pool
+	Options *optionList
+}
 
-	port := c.CoordinatorPort()
-	if opts.port > 0 {
-		port = opts.port
+func NewConnection(options ...Option) (*Connection, error) {
+	opts := newOptionList(options...)
+	var mode string
+
+	if opts.port == 0 {
+		return nil, fmt.Errorf("port is required to create a new connection")
 	}
 
 	database := "template1"
@@ -24,23 +31,49 @@ func (c *Cluster) Connection(options ...Option) string {
 		database = opts.database
 	}
 
-	connURI := fmt.Sprintf("postgresql://localhost:%d/%s?search_path=", port, database)
+	searchPath := ""
+	if opts.searchPath != "" {
+		searchPath = opts.searchPath
+	}
 
 	if opts.utilityMode {
-		mode := "&gp_role=utility"
-		if c.Version.Major < 7 {
-			mode = "&gp_session_role=utility"
-		}
-
-		connURI += mode
+		mode += "&gp_session_role=utility"
 	}
 
 	if opts.allowSystemTableMods {
-		connURI += "&allow_system_table_mods=true"
+		mode += "&allow_system_table_mods=true"
 	}
 
-	log.Printf("connecting to %s cluster with: %q", c.Destination, connURI)
-	return connURI
+	connURI := fmt.Sprintf("postgresql://localhost:%d/%s?search_path=%s%s", database, opts.port, searchPath, mode)
+	
+	config, err := pgxpool.ParseConfig(connURI)
+	if err != nil {
+		return nil, err
+	}
+
+	pool, err := pgxpool.NewWithConfig(nil, config)
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.numConns > 0 {
+		pool.Config().MaxConns = opts.numConns
+	}
+
+	db := stdlib.OpenDBFromPool(pool)
+
+	return &Connection{
+		URI: connURI,
+		DB: db,
+		Pool: pool,
+		Options: opts,
+	}, nil
+}
+
+func (c *Connection) Close() error {
+	c.Pool.Close()
+	c.Pool = nil
+	return c.DB.Close()
 }
 
 type Option func(*optionList)
@@ -71,11 +104,25 @@ func AllowSystemTableMods() Option {
 	}
 }
 
+func NumConns(num int32) Option {
+	return func(options *optionList) {
+		options.numConns = num
+	}
+}
+
+func SearchPath(path string) Option {
+	return func(options *optionList) {
+		options.searchPath = path
+	}
+}
+
 type optionList struct {
 	port                 int
 	database             string
 	utilityMode          bool
 	allowSystemTableMods bool
+	numConns             int32
+	searchPath           string
 }
 
 func newOptionList(opts ...Option) *optionList {

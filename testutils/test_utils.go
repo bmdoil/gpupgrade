@@ -414,20 +414,17 @@ func MustConvertStringToInt(t *testing.T, input string) int {
 	return num
 }
 
-func MustExecuteSQL(t *testing.T, connection string, query string) int {
+func MustExecuteSQL(t *testing.T, connection greenplum.Connection, query string) int {
 	t.Helper()
+	var err error
 
-	db, err := sql.Open("pgx", connection)
-	if err != nil {
-		t.Fatalf("opening sql connection %q: %v", connection, err)
-	}
 	defer func() {
-		if cErr := db.Close(); cErr != nil {
+		if cErr := connection.Close(); cErr != nil {
 			err = errorlist.Append(err, cErr)
 		}
 	}()
 
-	result, err := db.Exec(query)
+	result, err := connection.DB.Exec(query)
 	if err != nil {
 		t.Fatalf("executing sql %q: %v", query, err)
 	}
@@ -440,21 +437,18 @@ func MustExecuteSQL(t *testing.T, connection string, query string) int {
 	return int(rows)
 }
 
-func MustQueryRow(t *testing.T, connection string, query string) int {
+func MustQueryRow(t *testing.T, connection greenplum.Connection, query string) int {
 	t.Helper()
+	var err error
 
-	db, err := sql.Open("pgx", connection)
-	if err != nil {
-		t.Fatalf("opening sql connection %q: %v", connection, err)
-	}
 	defer func() {
-		if cErr := db.Close(); cErr != nil {
+		if cErr := connection.Close(); cErr != nil {
 			err = errorlist.Append(err, cErr)
 		}
 	}()
 
 	var result int
-	row := db.QueryRow(query)
+	row := connection.DB.QueryRow(query)
 	if err = row.Scan(&result); err != nil {
 		t.Fatalf("querying %q: %v", query, err)
 	}
@@ -518,7 +512,7 @@ func VerifyClusterIsRunning(t *testing.T, cluster greenplum.Cluster) {
 	}
 
 	if cluster.Version.Major == 5 {
-		MustExecuteSQL(t, cluster.Connection(), `SELECT 1`)
+		MustExecuteSQL(t, *cluster.Connection, `SELECT 1`)
 		return
 	}
 

@@ -24,7 +24,6 @@ import (
 	"github.com/greenplum-db/gpupgrade/step"
 	"github.com/greenplum-db/gpupgrade/testutils/exectest"
 	"github.com/greenplum-db/gpupgrade/upgrade"
-	"github.com/greenplum-db/gpupgrade/utils/errorlist"
 )
 
 const CoordinatorDbid = 1
@@ -43,6 +42,7 @@ type Cluster struct {
 	GPHome         string
 	Version        semver.Version
 	CatalogVersion string
+	Connection     *Connection
 }
 
 type ContentToSegConfig map[int]SegConfig
@@ -441,6 +441,27 @@ func (c *Cluster) RunCmd(streams step.OutStreams, command string, args ...string
 	return cmd.Run()
 }
 
+// Establish a cluster connection pool given the provided options
+// Currently we only support one cluster connection pool at a time.
+func (c *Cluster) Connect(options ...Option) error {
+	var err error
+	if c.Connection != nil {
+		return fmt.Errorf("cluster connection '%s' already established", c.Connection.URI)
+	}
+	c.Connection, err = NewConnection(options...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Cluster) CloseConnection() {
+	if c.Connection != nil {
+		c.Connection.Close()
+		c.Connection = nil
+	}
+}
+
 func (c *Cluster) CheckActiveConnections(streams step.OutStreams) error {
 	running, err := c.IsCoordinatorRunning(streams)
 	if err != nil {
@@ -453,33 +474,13 @@ func (c *Cluster) CheckActiveConnections(streams step.OutStreams) error {
 		return nil
 	}
 
-	db, err := sql.Open("pgx", c.Connection())
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cErr := db.Close(); cErr != nil {
-			err = errorlist.Append(err, cErr)
-		}
-	}()
-
-	return QueryPgStatActivity(db, c)
+	return QueryPgStatActivity(c.Connection.DB, c)
 }
 
 // WaitForClusterToBeReady waits until the timeout for all segments to be up,
 // in their preferred role, and synchronized.
 func (c *Cluster) WaitForClusterToBeReady() error {
-	db, err := sql.Open("pgx", c.Connection())
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cErr := db.Close(); cErr != nil {
-			err = errorlist.Append(err, cErr)
-		}
-	}()
-
-	return WaitForSegments(db, 5*time.Minute, c)
+	return WaitForSegments(c.Connection.DB, 5*time.Minute, c)
 }
 
 func GetCoordinatorSegPrefix(datadir string) (string, error) {

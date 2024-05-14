@@ -18,23 +18,12 @@ import (
 	"github.com/greenplum-db/gpupgrade/greenplum"
 	"github.com/greenplum-db/gpupgrade/step"
 	"github.com/greenplum-db/gpupgrade/utils"
-	"github.com/greenplum-db/gpupgrade/utils/errorlist"
 )
 
 var ErrUnknownCatalogVersion = errors.New("pg_controldata output is missing catalog version")
 
 func (s *Server) GenerateInitsystemConfig(source *greenplum.Cluster) error {
-	db, err := sql.Open("pgx", source.Connection())
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if cErr := db.Close(); cErr != nil {
-			err = errorlist.Append(err, cErr)
-		}
-	}()
-
-	return s.writeConf(db)
+	return s.writeConf(source.Connection.DB)
 }
 
 func (s *Server) writeConf(db *sql.DB) error {

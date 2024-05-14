@@ -4,6 +4,7 @@
 package greenplum
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os/exec"
@@ -29,17 +30,40 @@ func ResetVersionCommand() {
 	versionCommand = exec.Command
 }
 
-func Version(gphome string) (semver.Version, error) {
+func VersionStringFromDB(db *sql.DB) (string, error) {
+	var version string
+	err := db.QueryRow("SELECT version()").Scan(&version)
+	if err != nil {
+		return "", xerrors.Errorf("querying version: %w", err)
+	}
+
+	return version, nil
+}
+
+func VersionStringFromGPHome(gphome string) (string, error) {
 	cmd := versionCommand(filepath.Join(gphome, "bin", "postgres"), "--gp-version")
 	cmd.Env = []string{}
 
 	log.Printf("Executing: %q", cmd.String())
-	output, err := cmd.CombinedOutput()
+	version, err := cmd.CombinedOutput()
 	if err != nil {
-		return semver.Version{}, fmt.Errorf("%q failed with %q: %w", cmd.String(), string(output), err)
+		return "", fmt.Errorf("%q failed with %q: %w", cmd.String(), string(version), err)
+	}
+	return string(version), nil
+}
+
+func Version(from any) (semver.Version, error) {
+	var rawVersion string
+	var err error
+	switch from.(type) {
+	case *sql.DB:
+		rawVersion, err = VersionStringFromDB(from.(*sql.DB))
+	case string:
+		rawVersion, err =  VersionStringFromGPHome(from.(string))
+	default:
+		return semver.Version{}, xerrors.Errorf("unexpected type %T", from)
 	}
 
-	rawVersion := string(output)
 	parts := strings.SplitN(strings.TrimSpace(rawVersion), "postgres (Greenplum Database) ", 2)
 	if len(parts) != 2 {
 		return semver.Version{}, xerrors.Errorf(`Greenplum version %q is not of the form "postgres (Greenplum Database) #.#.#"`, rawVersion)

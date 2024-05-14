@@ -49,7 +49,7 @@ func TestAddMirrorsToCatalog(t *testing.T) {
 
 		mock.ExpectCommit()
 
-		err = hub.AddMirrorsToGpSegmentConfiguration(db, target)
+		err = hub.AddMirrorsToGpSegmentConfiguration(target)
 		if err != nil {
 			t.Errorf("returned error %+v", err)
 		}
@@ -154,7 +154,7 @@ func TestAddMirrorsToCatalog(t *testing.T) {
 			defer db.Close()
 
 			c.expectations(mock)
-			err = hub.AddMirrorsToGpSegmentConfiguration(db, target)
+			err = hub.AddMirrorsToGpSegmentConfiguration(target)
 			c.verifications(t, err)
 		})
 	}

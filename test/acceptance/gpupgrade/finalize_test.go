@@ -44,6 +44,8 @@ func TestFinalize(t *testing.T) {
 
 func testFinalize(t *testing.T, mode idl.Mode, useHbaHostnames bool) {
 	source := acceptance.GetSourceCluster(t)
+	source.Connect(greenplum.Database("postgres"))
+	defer source.CloseConnection()
 
 	backupDir := testutils.GetTempDir(t, "backup")
 	defer testutils.MustRemoveAll(t, backupDir)
@@ -55,8 +57,8 @@ func testFinalize(t *testing.T, mode idl.Mode, useHbaHostnames bool) {
 	defer acceptance.RemoveMarkerFilesOnAllSegments(t, source)
 
 	table := "public.should_be_reverted"
-	testutils.MustExecuteSQL(t, source.Connection(greenplum.Database("postgres")), fmt.Sprintf(`CREATE TABLE %s (a int); INSERT INTO %s VALUES (1), (2), (3);`, table, table))
-	defer testutils.MustExecuteSQL(t, source.Connection(greenplum.Database("postgres")), fmt.Sprintf(`DROP TABLE %s;`, table))
+	testutils.MustExecuteSQL(t, *source.Connection, fmt.Sprintf(`CREATE TABLE %s (a int); INSERT INTO %s VALUES (1), (2), (3);`, table, table))
+	defer testutils.MustExecuteSQL(t, *source.Connection, fmt.Sprintf(`DROP TABLE %s;`, table))
 
 	tablespaceDir := testutils.GetTempDir(t, "")
 	defer testutils.MustRemoveAll(t, tablespaceDir)
@@ -96,8 +98,10 @@ func testFinalize(t *testing.T, mode idl.Mode, useHbaHostnames bool) {
 	verifyFinalize(t, source, conf, finalizeOutput, useHbaHostnames)
 
 	acceptance.VerifyMarkerFilesOnAllSegments(t, conf.Intermediate, conf.Target)
+	conf.Target.Connect(greenplum.Database("postgres"))
+	defer conf.Target.CloseConnection()
 
-	rows := testutils.MustQueryRow(t, conf.Target.Connection(greenplum.Database("postgres")), fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table))
+	rows := testutils.MustQueryRow(t, *conf.Target.Connection, fmt.Sprintf(`SELECT COUNT(*) FROM %s;`, table))
 	expectedRows := 3
 	if rows != expectedRows {
 		t.Fatalf("got %d want %d rows", rows, expectedRows)

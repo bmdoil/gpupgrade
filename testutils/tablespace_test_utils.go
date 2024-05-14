@@ -18,6 +18,11 @@ import (
 func MustAddTablespace(t *testing.T, cluster greenplum.Cluster, tablespaceDir string) {
 	t.Helper()
 
+	err := cluster.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if cluster.Version.Major == 5 {
 		MustCreateFilespaceAndTablespace(t, cluster, tablespaceDir)
 	}
@@ -28,8 +33,8 @@ func MustAddTablespace(t *testing.T, cluster greenplum.Cluster, tablespaceDir st
 	}
 
 	// create databases in the tablespace
-	MustExecuteSQL(t, cluster.Connection(greenplum.Database("postgres")), `CREATE DATABASE foodb TABLESPACE test_tablespace;`)
-	MustExecuteSQL(t, cluster.Connection(greenplum.Database("postgres")), `CREATE DATABASE eatdb TABLESPACE test_tablespace;`)
+	MustExecuteSQL(t, *cluster.Connection, `CREATE DATABASE foodb TABLESPACE test_tablespace;`)
+	MustExecuteSQL(t, *cluster.Connection, `CREATE DATABASE eatdb TABLESPACE test_tablespace;`)
 
 	// create tables in the tablespace
 	sql := `
@@ -45,21 +50,30 @@ INSERT INTO public.tablespace_table_2 SELECT i from generate_series(1,100)i;
 CREATE TABLE  public.tablespace_table_3 (a int, b int) WITH(appendonly=true, orientation=column) TABLESPACE test_tablespace
 PARTITION BY RANGE(b) (START(1) END(4) EVERY(1));
 INSERT INTO public.tablespace_table_3 SELECT i, (i%3)+1 FROM generate_series(1,100)i;`
-	MustExecuteSQL(t, cluster.Connection(greenplum.Database("postgres")), sql)
+	MustExecuteSQL(t, *cluster.Connection, sql)
 
 	// add a table to the database within the tablespace
 	sql = `
 CREATE TABLE public.tablespace_table_0 (a int);
 INSERT INTO public.tablespace_table_0 SELECT i from generate_series(1,100)i;`
-	conn := cluster.Connection(greenplum.Database("foodb"))
-	MustExecuteSQL(t, conn, sql)
+
+	cluster.CloseConnection()
+	err = cluster.Connect(greenplum.Database("foodb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	MustExecuteSQL(t, *cluster.Connection, sql)
 
 	// add a table to the database within the tablespace
 	sql = `
 CREATE TABLE public.tablespace_table_0 (a int);
 INSERT INTO public.tablespace_table_0 SELECT i from generate_series(1,100)i;`
-	conn = cluster.Connection(greenplum.Database("eatdb"))
-	MustExecuteSQL(t, conn, sql)
+	cluster.CloseConnection()
+	err = cluster.Connect(greenplum.Database("eatdb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	MustExecuteSQL(t, *cluster.Connection, sql)
 }
 
 func MustCreateTablespace(t *testing.T, cluster greenplum.Cluster, tablespaceDir string) {
@@ -67,13 +81,19 @@ func MustCreateTablespace(t *testing.T, cluster greenplum.Cluster, tablespaceDir
 
 	path := filepath.Join(tablespaceDir, "testfs")
 	MustCreateDir(t, path)
-	MustExecuteSQL(t, cluster.Connection(greenplum.Database("postgres")), fmt.Sprintf(`CREATE TABLESPACE test_tablespace LOCATION '%s';`, path))
+	MustExecuteSQL(t, *cluster.Connection, fmt.Sprintf(`CREATE TABLESPACE test_tablespace LOCATION '%s';`, path))
 }
 
 func MustCreateFilespaceAndTablespace(t *testing.T, cluster greenplum.Cluster, tablespaceDir string) {
 	t.Helper()
-
 	var sb strings.Builder
+
+	err := cluster.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cluster.CloseConnection()
+
 	sb.WriteString("filespace:test_FS\n")
 	for _, seg := range cluster.Primaries {
 		// Keep symlinks short otherwise they get trimmed and result in an invalid symlink when pg_basebackup copies
@@ -95,13 +115,13 @@ func MustCreateFilespaceAndTablespace(t *testing.T, cluster greenplum.Cluster, t
 	MustWriteToFile(t, config, sb.String())
 
 	// gpfilespace requires the HOME environment variable
-	err := cluster.RunGreenplumCmdWithEnvironment(step.NewLogStdStreams(false), "gpfilespace", []string{"--config", config}, utils.FilterEnv([]string{"HOME"}))
+	err = cluster.RunGreenplumCmdWithEnvironment(step.NewLogStdStreams(false), "gpfilespace", []string{"--config", config}, utils.FilterEnv([]string{"HOME"}))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// create a tablespace in the filespace
-	MustExecuteSQL(t, cluster.Connection(greenplum.Database("postgres")), `CREATE TABLESPACE test_tablespace FILESPACE test_FS;`)
+	MustExecuteSQL(t, *cluster.Connection, `CREATE TABLESPACE test_tablespace FILESPACE test_FS;`)
 }
 
 // MustDeleteTablespaces deletes tablespaces from the target cluster. However,
@@ -114,28 +134,39 @@ func MustDeleteTablespaces(t *testing.T, source greenplum.Cluster, target greenp
 		return
 	}
 
-	conn := target.Connection(greenplum.Database("foodb"))
-	MustExecuteSQL(t, conn, `DROP TABLE IF EXISTS public.tablespace_table_0;`)
+	err := target.Connect(greenplum.Database("foodb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	MustExecuteSQL(t, *target.Connection, `DROP TABLE IF EXISTS public.tablespace_table_0;`)
 
-	conn = target.Connection(greenplum.Database("eatdb"))
-	MustExecuteSQL(t, conn, `DROP TABLE IF EXISTS public.tablespace_table_0;`)
+	target.CloseConnection()
+	err = target.Connect(greenplum.Database("foodb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	MustExecuteSQL(t, *target.Connection, `DROP TABLE IF EXISTS public.tablespace_table_0;`)
 
-	MustExecuteSQL(t, target.Connection(), `DROP DATABASE foodb;`)
-	MustExecuteSQL(t, target.Connection(), `DROP DATABASE eatdb;`)
+	MustExecuteSQL(t, *target.Connection, `DROP DATABASE foodb;`)
+	MustExecuteSQL(t, *target.Connection, `DROP DATABASE eatdb;`)
 
 	sql := `
 DROP TABLE IF EXISTS public.tablespace_table_0;
 DROP TABLE IF EXISTS public.tablespace_table_1;
 DROP TABLE IF EXISTS public.tablespace_table_2;
 DROP TABLE IF EXISTS public.tablespace_table_3;`
-	MustExecuteSQL(t, target.Connection(greenplum.Database("postgres")), sql)
+	target.CloseConnection()
+	err = target.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	sql = `DROP TABLESPACE IF EXISTS test_tablespace;`
 	if target.Version.Major == 5 {
 		sql += `DROP FILESPACE IF EXISTS test_FS;`
 	}
 
-	MustExecuteSQL(t, target.Connection(greenplum.Database("postgres")), sql)
+	MustExecuteSQL(t, *target.Connection, sql)
 }
 
 func MustTruncateTablespaces(t *testing.T, cluster greenplum.Cluster) {
@@ -145,18 +176,31 @@ func MustTruncateTablespaces(t *testing.T, cluster greenplum.Cluster) {
 		return
 	}
 
+	err := cluster.Connect(greenplum.Database("postgres"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	sql := `
 TRUNCATE public.tablespace_table_0;
 TRUNCATE public.tablespace_table_1;
 TRUNCATE public.tablespace_table_2;
 TRUNCATE public.tablespace_table_3;`
-	MustExecuteSQL(t, cluster.Connection(greenplum.Database("postgres")), sql)
+	MustExecuteSQL(t, *cluster.Connection, sql)
 
-	conn := cluster.Connection(greenplum.Database("foodb"))
-	MustExecuteSQL(t, conn, `TRUNCATE public.tablespace_table_0;`)
+	cluster.CloseConnection()
+	err = cluster.Connect(greenplum.Database("foodb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	MustExecuteSQL(t, *cluster.Connection, `TRUNCATE public.tablespace_table_0;`)
 
-	conn = cluster.Connection(greenplum.Database("eatdb"))
-	MustExecuteSQL(t, conn, `TRUNCATE public.tablespace_table_0;`)
+	cluster.CloseConnection()
+	err = cluster.Connect(greenplum.Database("eatdb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	MustExecuteSQL(t, *cluster.Connection, `TRUNCATE public.tablespace_table_0;`)
 }
 
 func VerifyTablespaceData(t *testing.T, cluster greenplum.Cluster) {
@@ -168,22 +212,29 @@ func VerifyTablespaceData(t *testing.T, cluster greenplum.Cluster) {
 
 	tables := []string{"public.tablespace_table_0", "public.tablespace_table_1", "public.tablespace_table_2", "public.tablespace_table_3"}
 	for _, table := range tables {
-		rows := MustQueryRow(t, cluster.Connection(greenplum.Database("postgres")), `SELECT COUNT(*) FROM `+table)
+		rows := MustQueryRow(t, *cluster.Connection, `SELECT COUNT(*) FROM `+table)
 		expected := 100
 		if rows != expected {
 			t.Fatalf("got %v want %v rows", rows, expected)
 		}
 	}
 
-	conn := cluster.Connection(greenplum.Database("foodb"))
-	row := MustQueryRow(t, conn, `SELECT COUNT(*) FROM public.tablespace_table_0;`)
+	err := cluster.Connect(greenplum.Database("foodb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := MustQueryRow(t, *cluster.Connection, `SELECT COUNT(*) FROM public.tablespace_table_0;`)
 	expectedCount := 100
 	if row != expectedCount {
 		t.Fatalf("got %d want %d rows", row, expectedCount)
 	}
 
-	conn = cluster.Connection(greenplum.Database("eatdb"))
-	row = MustQueryRow(t, conn, `SELECT COUNT(*) FROM public.tablespace_table_0;`)
+	cluster.CloseConnection()
+	err = cluster.Connect(greenplum.Database("eatdb"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	row = MustQueryRow(t, *cluster.Connection, `SELECT COUNT(*) FROM public.tablespace_table_0;`)
 	expectedCount = 100
 	if row != expectedCount {
 		t.Fatalf("got %d want %d rows", row, expectedCount)
