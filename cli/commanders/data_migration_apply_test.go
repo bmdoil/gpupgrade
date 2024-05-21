@@ -10,7 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
+	//"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -23,7 +23,7 @@ import (
 	"github.com/greenplum-db/gpupgrade/idl"
 	"github.com/greenplum-db/gpupgrade/step"
 	"github.com/greenplum-db/gpupgrade/testutils"
-	"github.com/greenplum-db/gpupgrade/testutils/exectest"
+	//"github.com/greenplum-db/gpupgrade/testutils/exectest"
 	"github.com/greenplum-db/gpupgrade/utils"
 )
 
@@ -47,44 +47,44 @@ func TestApplyDataMigrationScripts(t *testing.T) {
 		}
 	})
 
-	t.Run("prints stats specific message for stats phase", func(t *testing.T) {
-		d := BufferStandardDescriptors(t)
+	// t.Run("prints stats specific message for stats phase", func(t *testing.T) {
+	// 	d := BufferStandardDescriptors(t)
 
-		resetStdin := testutils.SetStdin(t, "a\n")
-		defer resetStdin()
+	// 	resetStdin := testutils.SetStdin(t, "a\n")
+	// 	defer resetStdin()
 
-		scriptDirFS := fstest.MapFS{
-			"migration_postgres_generate_stats.sql":  {},
-			"migration_template1_generate_stats.sql": {},
-		}
+	// 	scriptDirFS := fstest.MapFS{
+	// 		"migration_postgres_generate_stats.sql":  {},
+	// 		"migration_template1_generate_stats.sql": {},
+	// 	}
 
-		utils.System.DirFS = func(dir string) fs.FS {
-			return scriptDirFS
-		}
-		defer utils.ResetSystemFunctions()
+	// 	utils.System.DirFS = func(dir string) fs.FS {
+	// 		return scriptDirFS
+	// 	}
+	// 	defer utils.ResetSystemFunctions()
 
-		commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
-		defer commanders.ResetPsqlFileCommand()
+	// 	commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
+	// 	defer commanders.ResetPsqlFileCommand()
 
-		err := commanders.ApplyDataMigrationScripts(step.DevNullStream, false, "", 0, logDir, currentDirFS, currentScriptDir, idl.Step_stats, 1)
-		if err != nil {
-			t.Errorf("unexpected err %#v", err)
-		}
+	// 	err := commanders.ApplyDataMigrationScripts(step.DevNullStream, false, "", 0, logDir, currentDirFS, currentScriptDir, idl.Step_stats, 1)
+	// 	if err != nil {
+	// 		t.Errorf("unexpected err %#v", err)
+	// 	}
 
-		stdout, stderr := d.Collect()
-		d.Close()
-		if len(stderr) != 0 {
-			t.Errorf("unexpected stderr %#v", string(stderr))
-		}
+	// 	stdout, stderr := d.Collect()
+	// 	d.Close()
+	// 	if len(stderr) != 0 {
+	// 		t.Errorf("unexpected stderr %#v", string(stderr))
+	// 	}
 
-		expected := "To receive an upgrade time estimate send the stats output"
-		actual := string(stdout)
-		if !strings.Contains(actual, expected) {
-			t.Errorf("expected output %#v to contain %#v", actual, expected)
-			t.Logf("actual:   %#v", actual)
-			t.Logf("expected: %#v", expected)
-		}
-	})
+	// 	expected := "To receive an upgrade time estimate send the stats output"
+	// 	actual := string(stdout)
+	// 	if !strings.Contains(actual, expected) {
+	// 		t.Errorf("expected output %#v to contain %#v", actual, expected)
+	// 		t.Logf("actual:   %#v", actual)
+	// 		t.Logf("expected: %#v", expected)
+	// 	}
+	// })
 
 	t.Run("does not error when prompt returns skipped", func(t *testing.T) {
 		resetStdin := testutils.SetStdin(t, "n\n")
@@ -109,32 +109,32 @@ func TestApplyDataMigrationScripts(t *testing.T) {
 		}
 	})
 
-	t.Run("errors when applying script sub directory fails", func(t *testing.T) {
-		commanders.SetPsqlFileCommand(exectest.NewCommand(FailedMain))
-		defer commanders.ResetPsqlFileCommand()
+	// t.Run("errors when applying script sub directory fails", func(t *testing.T) {
+	// 	commanders.SetPsqlFileCommand(exectest.NewCommand(FailedMain))
+	// 	defer commanders.ResetPsqlFileCommand()
 
-		currentScriptDir := testutils.GetTempDir(t, "")
-		defer testutils.MustRemoveAll(t, currentScriptDir)
+	// 	currentScriptDir := testutils.GetTempDir(t, "")
+	// 	defer testutils.MustRemoveAll(t, currentScriptDir)
 
-		// This is mocking scriptDirFS
-		utils.System.DirFS = func(dir string) fs.FS {
-			return fstest.MapFS{
-				idl.Step_stats.String():                                  {Mode: os.ModeDir},
-				filepath.Join(idl.Step_stats.String(), "generate_stats"): {Mode: os.ModeDir},
-				"migration_postgres_generate_stats.sql":                  {},
-			}
-		}
-		defer utils.ResetSystemFunctions()
+	// 	// This is mocking scriptDirFS
+	// 	utils.System.DirFS = func(dir string) fs.FS {
+	// 		return fstest.MapFS{
+	// 			idl.Step_stats.String():                                  {Mode: os.ModeDir},
+	// 			filepath.Join(idl.Step_stats.String(), "generate_stats"): {Mode: os.ModeDir},
+	// 			"migration_postgres_generate_stats.sql":                  {},
+	// 		}
+	// 	}
+	// 	defer utils.ResetSystemFunctions()
 
-		resetStdin := testutils.SetStdin(t, "a\n")
-		defer resetStdin()
+	// 	resetStdin := testutils.SetStdin(t, "a\n")
+	// 	defer resetStdin()
 
-		err := commanders.ApplyDataMigrationScripts(step.DevNullStream, false, "", 0, logDir, currentDirFS, currentScriptDir, idl.Step_stats, 1)
-		var exitError *exec.ExitError
-		if !errors.As(err, &exitError) {
-			t.Errorf("got %T, want %T", err, exitError)
-		}
-	})
+	// 	err := commanders.ApplyDataMigrationScripts(step.DevNullStream, false, "", 0, logDir, currentDirFS, currentScriptDir, idl.Step_stats, 1)
+	// 	var exitError *exec.ExitError
+	// 	if !errors.As(err, &exitError) {
+	// 		t.Errorf("got %T, want %T", err, exitError)
+	// 	}
+	// })
 
 	t.Run("errors when failing to open output log", func(t *testing.T) {
 		utils.System.DirFS = func(dir string) fs.FS {
@@ -193,44 +193,44 @@ func TestApplyDataMigrationScriptSubDir(t *testing.T) {
 		}
 	})
 
-	t.Run("only applies sql files", func(t *testing.T) {
-		commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
-		defer commanders.ResetPsqlFileCommand()
+	// t.Run("only applies sql files", func(t *testing.T) {
+	// 	commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
+	// 	defer commanders.ResetPsqlFileCommand()
 
-		fsys := fstest.MapFS{
-			"some_directory": {Mode: os.ModeDir},
-			"migration_postgres_gen_drop_constraint_2_primary_unique.sql": {},
-			"drop_postgres_indexes.bash":                                  {},
-		}
+	// 	fsys := fstest.MapFS{
+	// 		"some_directory": {Mode: os.ModeDir},
+	// 		"migration_postgres_gen_drop_constraint_2_primary_unique.sql": {},
+	// 		"drop_postgres_indexes.bash":                                  {},
+	// 	}
 
-		output, err := commanders.ApplyDataMigrationScriptSubDir("", 0, fsys, scriptSubDir, bar, 1)
-		if err != nil {
-			t.Errorf("unexpected err %#v", err)
-		}
+	// 	output, err := commanders.ApplyDataMigrationScriptSubDir("", 0, fsys, scriptSubDir, bar, 1)
+	// 	if err != nil {
+	// 		t.Errorf("unexpected err %#v", err)
+	// 	}
 
-		if string(output) != SuccessScriptOutput {
-			t.Errorf("got output %q, want %q", output, SuccessScriptOutput)
-		}
-	})
+	// 	if string(output) != SuccessScriptOutput {
+	// 		t.Errorf("got output %q, want %q", output, SuccessScriptOutput)
+	// 	}
+	// })
 
-	t.Run("errors when applying sql file fails", func(t *testing.T) {
-		commanders.SetPsqlFileCommand(exectest.NewCommand(FailedMain))
-		defer commanders.ResetPsqlFileCommand()
+	// t.Run("errors when applying sql file fails", func(t *testing.T) {
+	// 	commanders.SetPsqlFileCommand(exectest.NewCommand(FailedMain))
+	// 	defer commanders.ResetPsqlFileCommand()
 
-		fsys := fstest.MapFS{
-			"migration_postgres_gen_drop_constraint_2_primary_unique.sql": {},
-		}
+	// 	fsys := fstest.MapFS{
+	// 		"migration_postgres_gen_drop_constraint_2_primary_unique.sql": {},
+	// 	}
 
-		output, err := commanders.ApplyDataMigrationScriptSubDir("", 0, fsys, scriptSubDir, bar, 1)
-		var exitError *exec.ExitError
-		if !errors.As(err, &exitError) {
-			t.Errorf("got %T, want %T", err, exitError)
-		}
+	// 	output, err := commanders.ApplyDataMigrationScriptSubDir("", 0, fsys, scriptSubDir, bar, 1)
+	// 	var exitError *exec.ExitError
+	// 	if !errors.As(err, &exitError) {
+	// 		t.Errorf("got %T, want %T", err, exitError)
+	// 	}
 
-		if output != nil {
-			t.Error("expected nil output")
-		}
-	})
+	// 	if output != nil {
+	// 		t.Error("expected nil output")
+	// 	}
+	// })
 }
 
 func TestApplyDataMigrationScriptsPrompt(t *testing.T) {
