@@ -45,7 +45,7 @@ func UpgradePrimaries(agentConns []*idl.Connection, agentHostToBackupDir backupd
 				NewPort:             strconv.Itoa(intermediatePrimary.Port),
 				NewDBID:             strconv.Itoa(intermediatePrimary.DbID),
 				Tablespaces:         source.Tablespaces[int32(intermediatePrimary.DbID)],
-				PgUpgradeTimeStamp:  pgUpgradeTimestamp,
+				PgUpgradeTimestamp:  pgUpgradeTimestamp,
 			}
 			opts = append(opts, opt)
 		}

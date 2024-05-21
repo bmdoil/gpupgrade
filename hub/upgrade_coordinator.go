@@ -50,7 +50,7 @@ func UpgradeCoordinator(streams step.OutStreams, backupDir string, pgUpgradeVerb
 		NewDataDir:          intermediate.CoordinatorDataDir(),
 		NewPort:             strconv.Itoa(intermediate.CoordinatorPort()),
 		NewDBID:             strconv.Itoa(intermediate.Coordinator().DbID),
-		PgUpgradeTimeStamp:  pgUpgradeTimestamp,
+		PgUpgradeTimestamp:  pgUpgradeTimestamp,
 	}
 
 	err := RsyncCoordinatorDataDir(streams, utils.GetCoordinatorPreUpgradeBackupDir(backupDir), intermediate.CoordinatorDataDir())
@@ -64,7 +64,7 @@ func UpgradeCoordinator(streams step.OutStreams, backupDir string, pgUpgradeVerb
 			return xerrors.Errorf("%s master: %v", action, err)
 		}
 
-		pgUpgradeDir, dirErr := utils.GetPgUpgradeDir(opts.GetRole(), opts.GetContentID(), opts.GetPgUpgradeTimeStamp(), opts.GetTargetVersion())
+		pgUpgradeDir, dirErr := utils.GetPgUpgradeDir(opts.GetRole(), opts.GetContentID(), opts.GetPgUpgradeTimestamp(), opts.GetTargetVersion())
 		if dirErr != nil {
 			err = errorlist.Append(err, dirErr)
 		}
