@@ -614,7 +614,7 @@ func TestGenerateScriptsPerPhase(t *testing.T) {
 				t.Errorf("got filename %q, want %q", filename, expected)
 			}
 
-			expected = "\\c postgres\nsuccessfully executed data migration SQL script"
+			expected = "\\c postgres\nSELECT 'successfully executed data migration SQL script'"
 			actual := string(data)
 			if actual != expected {
 				t.Errorf("got generated file contents %q, want %q", actual, expected)
@@ -669,7 +669,7 @@ func TestGenerateScriptsPerPhase(t *testing.T) {
 				t.Errorf("got filename %q, want %q", filename, expected)
 			}
 
-			expected = "\\c postgres\nsuccessfully executed data migration SQL script"
+			expected = "\\c postgres\nSELECT 'successfully executed data migration SQL script'"
 			actual := string(data)
 			if actual != expected {
 				t.Errorf("got generated file contents %q, want %q", actual, expected)
@@ -713,7 +713,7 @@ func TestGenerateScriptsPerPhase(t *testing.T) {
 				t.Errorf("got filename %q, want %q", filename, expected)
 			}
 
-			expected = "\\c postgres\ngphdfs roles header\nsuccessfully executed data migration SQL script"
+			expected = "\\c postgres\ngphdfs roles header\nSELECT 'successfully executed data migration SQL script'"
 			actual := string(data)
 			if actual != expected {
 				t.Errorf("got generated file contents %q, want %q", actual, expected)

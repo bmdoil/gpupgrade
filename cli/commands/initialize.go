@@ -301,7 +301,7 @@ func initialize() *cobra.Command {
 	subInit.Flags().BoolVar(&pgUpgradeVerbose, "pg-upgrade-verbose", false, "execute pg_upgrade with --verbose")
 	subInit.Flags().BoolVar(&skipPgUpgradeChecks, "skip-pg-upgrade-checks", false, "skips pg_upgrade checks")
 	subInit.Flags().MarkHidden("skip-pg-upgrade-checks") //nolint
-	subInit.Flags().IntVar(&jobs, "jobs", 4, "number of jobs to run for steps that can run in parallel. Defaults to 4.")
+	subInit.Flags().IntVar(&jobs, "jobs", 1, "number of jobs to run for steps that can run in parallel. Defaults to 1.")
 	subInit.Flags().StringVarP(&file, "file", "f", "", "the configuration file to use")
 	subInit.Flags().BoolVar(&nonInteractive, "non-interactive", false, "do not prompt for confirmation to proceed")
 	subInit.Flags().MarkHidden("non-interactive") //nolint

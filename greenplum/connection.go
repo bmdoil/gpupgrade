@@ -47,6 +47,7 @@ func (c *Cluster) Connection(options ...Option) string {
 }
 
 func NewPool(options ...Option) (*pgxpool.Pool, error) {
+	setGucsQuery := ""
 	opts := newOptionList(options...)
 
 	if opts.port <= 0 {
@@ -87,20 +88,23 @@ func NewPool(options ...Option) (*pgxpool.Pool, error) {
 	}
 
 	if opts.allowSystemTableMods {
-		var val string
 		if version.Major < 6 {
-			val = "dml"
+			setGucsQuery += "SET allow_system_table_mods=dml;\n"
 		} else {
-			val = "on"
+			setGucsQuery += "SET allow_system_table_mods=on;\n"
 		}
-		config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-			_, err := conn.Exec(ctx, fmt.Sprintf("SET allow_system_table_mods = %s", val))
-			return err
-		}
-		if err != nil {
-			return nil, err
-		}
+	}
 
+	// Add any GUC values for connections in the pool
+	for _, guc := range opts.gucs {
+		setGucsQuery += guc + "\n"
+	}
+	config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		_, err := conn.Exec(ctx, setGucsQuery)
+		return err
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
@@ -152,12 +156,19 @@ func NumConns(numConns int) Option {
 	}
 }
 
+func Gucs(gucs []string) Option {
+	return func(options *optionList) {
+		options.gucs = gucs
+	}
+}
+
 type optionList struct {
 	port                 int
 	database             string
 	utilityMode          bool
 	allowSystemTableMods bool
 	numConns             int
+	gucs                 []string
 }
 
 func newOptionList(opts ...Option) *optionList {

@@ -22,7 +22,7 @@ func FailedMain() {
 	os.Exit(1)
 }
 
-const SuccessScriptOutput = "successfully executed data migration SQL script"
+const SuccessScriptOutput = "SELECT 'successfully executed data migration SQL script'"
 
 func SuccessScript() {
 	os.Stdout.WriteString(SuccessScriptOutput)

@@ -5,6 +5,7 @@ package commanders
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -20,13 +21,14 @@ import (
 	"github.com/vbauerster/mpb/v8/decor"
 	"golang.org/x/xerrors"
 
+	"github.com/greenplum-db/gpupgrade/greenplum"
 	"github.com/greenplum-db/gpupgrade/idl"
 	"github.com/greenplum-db/gpupgrade/step"
 	"github.com/greenplum-db/gpupgrade/utils"
 	"github.com/greenplum-db/gpupgrade/utils/errorlist"
 )
 
-func ApplyDataMigrationScripts(streams step.OutStreams, nonInteractive bool, gphome string, port int, logDir string, currentScriptDirFS fs.FS, currentScriptDir string, phase idl.Step) error {
+func ApplyDataMigrationScripts(streams step.OutStreams, nonInteractive bool, gphome string, port int, logDir string, currentScriptDirFS fs.FS, currentScriptDir string, phase idl.Step, jobs int) error {
 	_, err := currentScriptDirFS.Open(phase.String())
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -79,7 +81,6 @@ func ApplyDataMigrationScripts(streams step.OutStreams, nonInteractive bool, gph
 
 	for _, scriptDir := range scriptDirsToRun {
 		wg.Add(1)
-
 		scriptDirEntries, rErr := utils.System.ReadDirFS(utils.System.DirFS(scriptDir), ".")
 		if rErr != nil {
 			return rErr
@@ -91,21 +92,20 @@ func ApplyDataMigrationScripts(streams step.OutStreams, nonInteractive bool, gph
 				decor.Name("  "+filepath.Base(scriptDir), decor.WCSyncSpaceR),
 				decor.CountersNoUnit("  %d/%d scripts applied")))
 
-		go func(gphome string, port int, scriptDir string, bar *mpb.Bar) {
+		go func(gphome string, port int, scriptDir string, bar *mpb.Bar, jobs int) {
 			defer wg.Done()
 
-			output, aErr := ApplyDataMigrationScriptSubDir(gphome, port, utils.System.DirFS(scriptDir), scriptDir, bar)
+			output, aErr := ApplyDataMigrationScriptSubDir(gphome, port, utils.System.DirFS(scriptDir), scriptDir, bar, jobs)
 			if aErr != nil {
 				errChan <- aErr
 				bar.Abort(false)
 				return
 			}
-
 			outputChan <- output
-		}(gphome, port, scriptDir, bar)
+
+		}(gphome, port, scriptDir, bar, jobs)
 	}
 
-	progressBar.Wait()
 	wg.Wait()
 	close(errChan)
 	close(outputChan)
@@ -122,11 +122,13 @@ func ApplyDataMigrationScripts(streams step.OutStreams, nonInteractive bool, gph
 	for output := range outputChan {
 		log.Println(string(output))
 
-		_, err = file.Write(output)
+		_, err := file.Write(output)
 		if err != nil {
 			return err
 		}
 	}
+
+	progressBar.Wait()
 
 	if phase == idl.Step_stats {
 		fmt.Print(color.YellowString("\nTo receive an upgrade time estimate send the stats output:\n%s\n", utils.Bold.Sprint(filepath.Join(logDir, "apply_"+phase.String()+".log"))))
@@ -149,7 +151,7 @@ func countScripts(entries []fs.DirEntry) int {
 	return numScripts
 }
 
-func ApplyDataMigrationScriptSubDir(gphome string, port int, scriptDirFS fs.FS, scriptDir string, bar *mpb.Bar) ([]byte, error) {
+func ApplyDataMigrationScriptSubDir(gphome string, port int, scriptDirFS fs.FS, scriptDir string, bar *mpb.Bar, jobs int) ([]byte, error) {
 	entries, err := utils.System.ReadDirFS(scriptDirFS, ".")
 	if err != nil {
 		return nil, err
@@ -166,17 +168,75 @@ func ApplyDataMigrationScriptSubDir(gphome string, port int, scriptDirFS fs.FS, 
 		}
 
 		log.Printf("  %s\n", entry.Name())
-		output, err := ApplySQLFile(gphome, port, "postgres", filepath.Join(scriptDir, entry.Name()), "-v", "ON_ERROR_STOP=1", "--echo-queries")
-		if err != nil {
-			return nil, err
+
+		if isIndexScript(entry.Name()) {
+				err := ApplyIndexStatements(filepath.Join(scriptDir, entry.Name()), port, jobs)
+				if err != nil {
+					return nil, err
+				}
+		} else {
+			output, err := ApplySQLFile(gphome, port, "postgres", filepath.Join(scriptDir, entry.Name()), "-v", "ON_ERROR_STOP=1", "--echo-queries")
+			if err != nil {
+				return nil, err
+			}
+			outputs = append(outputs, output...)
 		}
-
-		outputs = append(outputs, output...)
-
 		bar.Increment()
 	}
-
 	return outputs, nil
+}
+
+func ApplyIndexStatements(scriptPath string, port int, numConns int) error {
+	indexStatements, err := ReadIndexStatements(scriptPath)
+	if err != nil {
+		return err
+	}
+
+	if len(indexStatements.Statements) == 0 {
+		return xerrors.Errorf("Failed to apply data migration script. No index statements found in %q.", scriptPath)
+	}
+
+	batches := make(map[string][]IndexStatement)
+
+	for _, statement := range indexStatements.Statements {
+		batches[statement.Table] = append(batches[statement.Table], statement)
+	}
+
+	pool, err := greenplum.NewPool(greenplum.Port(port), greenplum.Database(indexStatements.Database), greenplum.NumConns(numConns))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	errChan := make(chan error, len(indexStatements.Statements))
+	batchChan := make(chan []IndexStatement, len(batches))
+	jobs := min(int(pool.Config().MaxConns), int(len(indexStatements.Statements)))
+
+	var wg sync.WaitGroup
+	for i := 0; i < jobs; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for statements := range batchChan {
+				for _, s := range statements {
+					_, execErr := pool.Exec(context.Background(), s.Definition)
+					if execErr != nil {
+						errChan <- xerrors.Errorf("URI: %s: executing statement %q: %w", pool.Config().ConnString(), s.Definition, execErr)
+					}
+				}
+			}
+		}()
+	
+	}
+
+	for _, batch := range batches {
+		batchChan <- batch
+	}
+	close(batchChan)
+	wg.Wait()
+	close(errChan)
+
+	return nil
 }
 
 func ApplyDataMigrationScriptsPrompt(nonInteractive bool, reader *bufio.Reader, currentScriptDir string, currentScriptDirFS fs.FS, phase idl.Step) ([]string, error) {
@@ -349,4 +409,8 @@ func ParseSelection(input string, allScripts Scripts) (Scripts, error) {
 	}
 
 	return selectedScripts, nil
+}
+
+func isIndexScript(script string) bool {
+	return strings.Contains(script, "drop_partition_indexes") || strings.Contains(script, "recreate_partition_indexes")
 }

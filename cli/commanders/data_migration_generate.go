@@ -6,6 +6,7 @@ package commanders
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
 	"golang.org/x/xerrors"
@@ -380,6 +382,11 @@ func GenerateScriptsPerPhase(phase idl.Step, database DatabaseInfo, gphome strin
 		}
 	}
 
+	err = GeneratePartitionIndexScripts(port, database.Datname, phase, outputDir)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -467,4 +474,104 @@ func isPhase(input string) bool {
 	}
 
 	return false
+}
+
+func GeneratePartitionIndexScripts(port int, database string, phase idl.Step, outputDir string) error {
+
+	if phase == idl.Step_stats {
+		return nil
+	}
+
+
+	pool, err := greenplum.NewPool(greenplum.Port(port), greenplum.Database(database))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	indexStatements, err := GetIndexStatements(pool, phase)
+	if err != nil {
+		return err
+	}
+
+	if len(indexStatements.Statements) > 0 {
+		outputPath := filepath.Join(outputDir, "current", phase.String(), "partitioned_tables_indexes")
+		err := utils.System.MkdirAll(outputPath, 0700)
+		if err != nil {
+			return err
+		}
+		err = WriteIndexScript(indexStatements, outputPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func GetIndexStatements(pool *pgxpool.Pool, phase idl.Step) (IndexStatements, error) {
+	var query string
+	var suffix string
+	indexStatements := IndexStatements{}
+	statements := make([]IndexStatement, 0)
+
+	switch (phase) {
+	case idl.Step_initialize:
+		query = PartitionIndexInitialize
+		suffix = "gen_drop_partition_indexes.sql"
+	case idl.Step_finalize:
+		query = PartitionIndexFinalize
+		suffix = "recreate_partition_indexes.sql"
+	case idl.Step_revert:
+		query = PartitionIndexRevert
+		suffix = "recreate_partition_indexes.sql"
+	case idl.Step_stats:
+		return IndexStatements{}, nil
+	}
+
+	res, err := pool.Query(context.Background(), query)
+	if err != nil {
+		return indexStatements, err
+	}
+	defer res.Close()
+
+	for res.Next() {
+		var stmt IndexStatement
+		err = res.Scan(&stmt.Schema, &stmt.Name, &stmt.Table, &stmt.Definition)
+		if err != nil {
+			return indexStatements, err
+		}
+		statements = append(statements, stmt)
+	}
+
+	if len(statements) == 0 {
+		return indexStatements, nil
+	}
+
+	indexStatements.Database = pool.Config().ConnConfig.Database
+	indexStatements.Filename = fmt.Sprintf("migration_%s_%s", indexStatements.Database, suffix)
+	indexStatements.Statements = statements
+
+	return indexStatements, nil
+}
+
+func WriteIndexScript(statements IndexStatements, outputPath string) error {
+	fullPath := filepath.Join(outputPath, statements.Filename)
+	contents := new(bytes.Buffer)
+
+	contents.WriteString("\\c " + statements.Database + "\n")
+	for _, stmt := range statements.Statements {
+		err := stmt.Write(contents)
+		if err != nil {
+			return err
+		}
+	}
+
+	wErr := utils.System.WriteFile(fullPath, contents.Bytes(), 0644)
+	if wErr != nil {
+		return wErr
+	}
+
+	contents = nil
+	return nil
 }

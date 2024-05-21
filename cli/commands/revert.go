@@ -105,7 +105,7 @@ func revert() *cobra.Command {
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "print the output stream from all substeps")
 	cmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "do not prompt for confirmation to proceed")
 	cmd.Flags().MarkHidden("non-interactive") //nolint
-	cmd.Flags().IntVar(&jobs, "jobs", 4, "number of jobs to run for steps that can run in parallel. Defaults to 4.")
+	cmd.Flags().IntVar(&jobs, "jobs", 1, "number of jobs to run for steps that can run in parallel. Defaults to 1.")
 
 	return addHelpToCommand(cmd, RevertHelp)
 }
