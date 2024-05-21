@@ -93,7 +93,7 @@ indexes AS
 )
 SELECT
 'DO $$ BEGIN IF NOT EXISTS ( SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = ''' || indexname ||
-''' AND n.nspname = ''' || schemaname || ''' ) THEN ' || indexdef || '; END IF; END $$; '
+''' AND n.nspname = ''' || schemaname || ''' ) THEN SET SEARCH_PATH=' || schemaname || '; ' || indexdef || '; END IF; END $$; '
 FROM
    indexes
 WHERE
