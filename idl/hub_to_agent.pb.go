@@ -146,7 +146,7 @@ type PgOptions struct {
 	NewPort             string                    `protobuf:"bytes,18,opt,name=newPort,proto3" json:"newPort,omitempty"`
 	NewDBID             string                    `protobuf:"bytes,19,opt,name=newDBID,proto3" json:"newDBID,omitempty"`
 	Tablespaces         map[int32]*TablespaceInfo `protobuf:"bytes,20,rep,name=Tablespaces,proto3" json:"Tablespaces,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	PgUpgradeTimestamp  string                    `protobuf:"bytes,21,opt,name=pgUpgradeTimeStamp,proto3" json:"pgUpgradeTimeStamp,omitempty"`
+	PgUpgradeTimeStamp  string                    `protobuf:"bytes,21,opt,name=pgUpgradeTimeStamp,proto3" json:"pgUpgradeTimeStamp,omitempty"`
 }
 
 func (x *PgOptions) Reset() {
@@ -323,7 +323,7 @@ func (x *PgOptions) GetTablespaces() map[int32]*TablespaceInfo {
 
 func (x *PgOptions) GetPgUpgradeTimeStamp() string {
 	if x != nil {
-		return x.PgUpgradeTimestamp
+		return x.PgUpgradeTimeStamp
 	}
 	return ""
 }
