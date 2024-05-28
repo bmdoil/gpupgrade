@@ -14,8 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-
-	// "strconv"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -242,18 +241,16 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 	defer greenplum.ResetVersionCommand()
 
 	mockPooler := new(testutils.MockPooler)
-	rows := sqlmock.NewRows([]string{"datname", "quoted_datname"}).AddRow("postgres", "postgres")
-	mockPooler.On("Query", mock.Anything, mock.Anything).Return(rows, nil)
-	mockPooler.On("ConnString").Return("postgresql://localhost:123/postgres")
+	mockPooler.On("Select", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
 	mockPooler.On("Close").Return()
 	mockPooler.On("Exec", mock.Anything, mock.Anything).Return(nil)
 	mockPooler.On("Database").Return("postgres")
 	mockPooler.On("Version").Return(semver.Version{Major: 6, Minor: 7, Patch: 1})
 	
 	greenplum.SetNewPoolerFunc(func(...greenplum.Option) (greenplum.Pooler, error) {
-		fmt.Println("greenplum.SetNewPoolerFunc")
 		return mockPooler, nil
 	})
+	defer greenplum.ResetNewPoolerFunc()
 
 	t.Run("does not error when plpythonu is present", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
@@ -468,6 +465,18 @@ func TestGenerateScriptsPerPhase(t *testing.T) {
 	progressBar := mpb.New()
 	bar := progressBar.AddBar(int64(100))
 
+	mockPooler := new(testutils.MockPooler)
+	mockPooler.On("Select", mock.Anything, mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	mockPooler.On("Close").Return()
+	mockPooler.On("Exec", mock.Anything, mock.Anything).Return(nil)
+	mockPooler.On("Database").Return("postgres")
+	mockPooler.On("Version").Return(semver.Version{Major: 6, Minor: 7, Patch: 1})
+	
+	greenplum.SetNewPoolerFunc(func(...greenplum.Option) (greenplum.Pooler, error) {
+		return mockPooler, nil
+	})
+	defer greenplum.ResetNewPoolerFunc()
+
 	t.Run("errors when failing to read seed directory", func(t *testing.T) {
 		err := commanders.GenerateScriptsPerPhase(phase, database, gphome, port, seedDir, fstest.MapFS{}, outputDir, bar)
 		var expected *os.PathError
@@ -488,42 +497,42 @@ func TestGenerateScriptsPerPhase(t *testing.T) {
 		}
 	})
 
-	// t.Run("only generates one global script rather than multiple scripts per database", func(t *testing.T) {
-	// 	commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
-	// 	defer commanders.ResetPsqlFileCommand()
+	t.Run("only generates one global script rather than multiple scripts per database", func(t *testing.T) {
+		commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
+		defer commanders.ResetPsqlFileCommand()
 
-	// 	utils.System.MkdirAll = func(path string, perm os.FileMode) error {
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+		utils.System.MkdirAll = func(path string, perm os.FileMode) error {
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	utils.System.ReadFile = func(filename string) ([]byte, error) {
-	// 		return nil, nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+		utils.System.ReadFile = func(filename string) ([]byte, error) {
+			return nil, nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	writeGeneratedScriptCalled := false
-	// 	utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
-	// 		writeGeneratedScriptCalled = true
+		writeGeneratedScriptCalled := false
+		utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
+			writeGeneratedScriptCalled = true
 
-	// 		expected := filepath.Join(outputDir, "current", phase.String(), "gphdfs_user_roles", "migration_postgres_gen_alter_gphdfs_roles.sql")
-	// 		if filename != expected {
-	// 			t.Errorf("got filename %q, want %q", filename, expected)
-	// 		}
+			expected := filepath.Join(outputDir, "current", phase.String(), "gphdfs_user_roles", "migration_postgres_gen_alter_gphdfs_roles.sql")
+			if filename != expected {
+				t.Errorf("got filename %q, want %q", filename, expected)
+			}
 
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	err := commanders.GenerateScriptsPerPhase(phase, database, gphome, port, seedDir, fsys, outputDir, bar)
-	// 	if err != nil {
-	// 		t.Errorf("unexpected error: %#v", err)
-	// 	}
+		err := commanders.GenerateScriptsPerPhase(phase, database, gphome, port, seedDir, fsys, outputDir, bar)
+		if err != nil {
+			t.Errorf("unexpected error: %#v", err)
+		}
 
-	// 	if !writeGeneratedScriptCalled {
-	// 		t.Error("expected writeFile to be called for generated script")
-	// 	}
-	// })
+		if !writeGeneratedScriptCalled {
+			t.Error("expected writeFile to be called for generated script")
+		}
+	})
 
 	t.Run("errors when failing to execute SQL script", func(t *testing.T) {
 		commanders.SetPsqlFileCommand(exectest.NewCommand(FailedMain))
@@ -583,172 +592,172 @@ func TestGenerateScriptsPerPhase(t *testing.T) {
 		}
 	})
 
-	// t.Run("executes sql scripts with correct arguments including --no-psqlrc for the correct database", func(t *testing.T) {
-	// 	commanders.SetPsqlFileCommand(exectest.NewCommandWithVerifier(SuccessScript, func(utility string, args ...string) {
-	// 		expectedUtility := "/usr/local/gpdb5/bin/psql"
-	// 		if utility != expectedUtility {
-	// 			t.Errorf("got %q want %q", utility, expectedUtility)
-	// 		}
+	t.Run("executes sql scripts with correct arguments including --no-psqlrc for the correct database", func(t *testing.T) {
+		commanders.SetPsqlFileCommand(exectest.NewCommandWithVerifier(SuccessScript, func(utility string, args ...string) {
+			expectedUtility := "/usr/local/gpdb5/bin/psql"
+			if utility != expectedUtility {
+				t.Errorf("got %q want %q", utility, expectedUtility)
+			}
 
-	// 		additionalArgs := args[:6]
-	// 		expected := []string{"-v", "ON_ERROR_STOP=1", "--no-align", "--tuples-only", "--no-psqlrc", "--quiet"}
-	// 		if !reflect.DeepEqual(additionalArgs, expected) {
-	// 			t.Errorf("got args %q want %q", additionalArgs, expected)
-	// 		}
+			additionalArgs := args[:6]
+			expected := []string{"-v", "ON_ERROR_STOP=1", "--no-align", "--tuples-only", "--no-psqlrc", "--quiet"}
+			if !reflect.DeepEqual(additionalArgs, expected) {
+				t.Errorf("got args %q want %q", additionalArgs, expected)
+			}
 
-	// 		database := args[7:8]
-	// 		expectedDatabase := []string{"postgres"}
-	// 		if !reflect.DeepEqual(database, expectedDatabase) {
-	// 			t.Errorf("got database %q, want %q", database, expectedDatabase)
-	// 		}
+			database := args[7:8]
+			expectedDatabase := []string{"postgres"}
+			if !reflect.DeepEqual(database, expectedDatabase) {
+				t.Errorf("got database %q, want %q", database, expectedDatabase)
+			}
 
-	// 		port := args[9:10]
-	// 		expectedPort := []string{"123"}
-	// 		if !reflect.DeepEqual(port, expectedPort) {
-	// 			t.Errorf("got port %q, want %q", port, expectedPort)
-	// 		}
+			port := args[9:10]
+			expectedPort := []string{"123"}
+			if !reflect.DeepEqual(port, expectedPort) {
+				t.Errorf("got port %q, want %q", port, expectedPort)
+			}
 
-	// 		seedScript := args[11:12]
-	// 		expectedSeedScript := []string{filepath.Join(seedDir, phase.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql")}
-	// 		if !reflect.DeepEqual(seedScript, expectedSeedScript) {
-	// 			t.Errorf("got seed script %q, want %q", seedScript, expectedSeedScript)
-	// 		}
+			seedScript := args[11:12]
+			expectedSeedScript := []string{filepath.Join(seedDir, phase.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql")}
+			if !reflect.DeepEqual(seedScript, expectedSeedScript) {
+				t.Errorf("got seed script %q, want %q", seedScript, expectedSeedScript)
+			}
 
-	// 	}))
-	// 	defer commanders.ResetPsqlFileCommand()
+		}))
+		defer commanders.ResetPsqlFileCommand()
 
-	// 	utils.System.MkdirAll = func(path string, perm os.FileMode) error {
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+		utils.System.MkdirAll = func(path string, perm os.FileMode) error {
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	writeGeneratedScriptCalled := false
-	// 	utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
-	// 		writeGeneratedScriptCalled = true
+		writeGeneratedScriptCalled := false
+		utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
+			writeGeneratedScriptCalled = true
 
-	// 		expected := filepath.Join(outputDir, "current", phase.String(), "unique_primary_foreign_key_constraint", "migration_postgres_migration_postgres_gen_drop_constraint_2_primary_unique.sql")
-	// 		if filename != expected {
-	// 			t.Errorf("got filename %q, want %q", filename, expected)
-	// 		}
+			expected := filepath.Join(outputDir, "current", phase.String(), "unique_primary_foreign_key_constraint", "migration_postgres_migration_postgres_gen_drop_constraint_2_primary_unique.sql")
+			if filename != expected {
+				t.Errorf("got filename %q, want %q", filename, expected)
+			}
 
-	// 		expected = "\\c postgres\nSELECT 'successfully executed data migration SQL script'"
-	// 		actual := string(data)
-	// 		if actual != expected {
-	// 			t.Errorf("got generated file contents %q, want %q", actual, expected)
-	// 		}
+			expected = "\\c postgres\nSELECT 'successfully executed data migration SQL script'"
+			actual := string(data)
+			if actual != expected {
+				t.Errorf("got generated file contents %q, want %q", actual, expected)
+			}
 
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	fsys := fstest.MapFS{
-	// 		phase.String(): {Mode: os.ModeDir},
-	// 		filepath.Join(phase.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
-	// 		filepath.Join(phase.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
-	// 	}
+		fsys := fstest.MapFS{
+			phase.String(): {Mode: os.ModeDir},
+			filepath.Join(phase.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
+			filepath.Join(phase.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
+		}
 
-	// 	err := commanders.GenerateScriptsPerPhase(phase, database, gphome, port, seedDir, fsys, outputDir, bar)
-	// 	if err != nil {
-	// 		t.Errorf("unexpected error: %#v", err)
-	// 	}
+		err := commanders.GenerateScriptsPerPhase(phase, database, gphome, port, seedDir, fsys, outputDir, bar)
+		if err != nil {
+			t.Errorf("unexpected error: %#v", err)
+		}
 
-	// 	if !writeGeneratedScriptCalled {
-	// 		t.Error("expected writeFile to be called for generated script")
-	// 	}
-	// })
+		if !writeGeneratedScriptCalled {
+			t.Error("expected writeFile to be called for generated script")
+		}
+	})
 
-	// t.Run("executes bash scripts for the correct database", func(t *testing.T) {
-	// 	commanders.SetBashCommand(exectest.NewCommandWithVerifier(SuccessScript, func(utility string, args ...string) {
-	// 		expectedUtility := filepath.Join(seedDir, idl.Step_stats.String(), "cluster_and_database_stats", "generate_database_stats.sh")
-	// 		if utility != expectedUtility {
-	// 			t.Errorf("got %q want %q", utility, expectedUtility)
-	// 		}
+	t.Run("executes bash scripts for the correct database", func(t *testing.T) {
+		commanders.SetBashCommand(exectest.NewCommandWithVerifier(SuccessScript, func(utility string, args ...string) {
+			expectedUtility := filepath.Join(seedDir, idl.Step_stats.String(), "cluster_and_database_stats", "generate_database_stats.sh")
+			if utility != expectedUtility {
+				t.Errorf("got %q want %q", utility, expectedUtility)
+			}
 
-	// 		actualArgs := args[0:]
-	// 		expected := []string{gphome, strconv.Itoa(port), database.Datname}
-	// 		if !reflect.DeepEqual(actualArgs, expected) {
-	// 			t.Errorf("got args %q want %q", actualArgs, expected)
-	// 		}
-	// 	}))
-	// 	defer commanders.ResetPsqlCommand()
+			actualArgs := args[0:]
+			expected := []string{gphome, strconv.Itoa(port), database.Datname}
+			if !reflect.DeepEqual(actualArgs, expected) {
+				t.Errorf("got args %q want %q", actualArgs, expected)
+			}
+		}))
+		defer commanders.ResetPsqlCommand()
 
-	// 	utils.System.MkdirAll = func(path string, perm os.FileMode) error {
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+		utils.System.MkdirAll = func(path string, perm os.FileMode) error {
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	writeGeneratedScriptCalled := false
-	// 	utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
-	// 		writeGeneratedScriptCalled = true
+		writeGeneratedScriptCalled := false
+		utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
+			writeGeneratedScriptCalled = true
 
-	// 		expected := filepath.Join(outputDir, "current", idl.Step_stats.String(), "cluster_and_database_stats", "migration_postgres_generate_database_stats.sql")
-	// 		if filename != expected {
-	// 			t.Errorf("got filename %q, want %q", filename, expected)
-	// 		}
+			expected := filepath.Join(outputDir, "current", idl.Step_stats.String(), "cluster_and_database_stats", "migration_postgres_generate_database_stats.sql")
+			if filename != expected {
+				t.Errorf("got filename %q, want %q", filename, expected)
+			}
 
-	// 		expected = "\\c postgres\nSELECT 'successfully executed data migration SQL script'"
-	// 		actual := string(data)
-	// 		if actual != expected {
-	// 			t.Errorf("got generated file contents %q, want %q", actual, expected)
-	// 		}
+			expected = "\\c postgres\nSELECT 'successfully executed data migration SQL script'"
+			actual := string(data)
+			if actual != expected {
+				t.Errorf("got generated file contents %q, want %q", actual, expected)
+			}
 
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	fsys := fstest.MapFS{
-	// 		idl.Step_stats.String(): {Mode: os.ModeDir},
-	// 		filepath.Join(idl.Step_stats.String(), "cluster_and_database_stats"):                               {Mode: os.ModeDir},
-	// 		filepath.Join(idl.Step_stats.String(), "cluster_and_database_stats", "generate_database_stats.sh"): {},
-	// 	}
+		fsys := fstest.MapFS{
+			idl.Step_stats.String(): {Mode: os.ModeDir},
+			filepath.Join(idl.Step_stats.String(), "cluster_and_database_stats"):                               {Mode: os.ModeDir},
+			filepath.Join(idl.Step_stats.String(), "cluster_and_database_stats", "generate_database_stats.sh"): {},
+		}
 
-	// 	err := commanders.GenerateScriptsPerPhase(idl.Step_stats, database, gphome, port, seedDir, fsys, outputDir, bar)
-	// 	if err != nil {
-	// 		t.Errorf("unexpected error: %#v", err)
-	// 	}
+		err := commanders.GenerateScriptsPerPhase(idl.Step_stats, database, gphome, port, seedDir, fsys, outputDir, bar)
+		if err != nil {
+			t.Errorf("unexpected error: %#v", err)
+		}
 
-	// 	if !writeGeneratedScriptCalled {
-	// 		t.Error("expected writeFile to be called for generated script")
-	// 	}
-	// })
+		if !writeGeneratedScriptCalled {
+			t.Error("expected writeFile to be called for generated script")
+		}
+	})
 
-	// t.Run("correctly adds the header file", func(t *testing.T) {
-	// 	commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
-	// 	defer commanders.ResetPsqlFileCommand()
+	t.Run("correctly adds the header file", func(t *testing.T) {
+		commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
+		defer commanders.ResetPsqlFileCommand()
 
-	// 	utils.System.MkdirAll = func(path string, perm os.FileMode) error {
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+		utils.System.MkdirAll = func(path string, perm os.FileMode) error {
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	writeGeneratedScriptCalled := false
-	// 	utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
-	// 		writeGeneratedScriptCalled = true
+		writeGeneratedScriptCalled := false
+		utils.System.WriteFile = func(filename string, data []byte, perm os.FileMode) error {
+			writeGeneratedScriptCalled = true
 
-	// 		expected := filepath.Join(outputDir, "current", phase.String(), "gphdfs_user_roles", "migration_postgres_gen_alter_gphdfs_roles.sql")
-	// 		if filename != expected {
-	// 			t.Errorf("got filename %q, want %q", filename, expected)
-	// 		}
+			expected := filepath.Join(outputDir, "current", phase.String(), "gphdfs_user_roles", "migration_postgres_gen_alter_gphdfs_roles.sql")
+			if filename != expected {
+				t.Errorf("got filename %q, want %q", filename, expected)
+			}
 
-	// 		expected = "\\c postgres\ngphdfs roles header\nSELECT 'successfully executed data migration SQL script'"
-	// 		actual := string(data)
-	// 		if actual != expected {
-	// 			t.Errorf("got generated file contents %q, want %q", actual, expected)
-	// 		}
+			expected = "\\c postgres\ngphdfs roles header\nSELECT 'successfully executed data migration SQL script'"
+			actual := string(data)
+			if actual != expected {
+				t.Errorf("got generated file contents %q, want %q", actual, expected)
+			}
 
-	// 		return nil
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+			return nil
+		}
+		defer utils.ResetSystemFunctions()
 
-	// 	err := commanders.GenerateScriptsPerPhase(phase, database, gphome, port, seedDir, fsys, outputDir, bar)
-	// 	if err != nil {
-	// 		t.Errorf("unexpected error: %#v", err)
-	// 	}
+		err := commanders.GenerateScriptsPerPhase(phase, database, gphome, port, seedDir, fsys, outputDir, bar)
+		if err != nil {
+			t.Errorf("unexpected error: %#v", err)
+		}
 
-	// 	if !writeGeneratedScriptCalled {
-	// 		t.Error("expected writeFile to be called for generated script")
-	// 	}
-	// })
+		if !writeGeneratedScriptCalled {
+			t.Error("expected writeFile to be called for generated script")
+		}
+	})
 
 	t.Run("errors when failing to read header", func(t *testing.T) {
 		commanders.SetPsqlFileCommand(exectest.NewCommand(SuccessScript))
