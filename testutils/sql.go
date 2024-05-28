@@ -8,7 +8,6 @@ import (
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/blang/semver/v4"
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/greenplum-db/gpupgrade/greenplum"
@@ -73,8 +72,8 @@ func (m *MockPooler) Exec(query string, args ...any) error {
 	return m.Called(query, args).Error(0)
 }
 
-func (m *MockPooler) Query(sql string, args ...any) (pgx.Rows, error) {
-	return m.Called(sql, args).Get(0).(pgx.Rows), m.Called(sql, args).Error(1)
+func (m *MockPooler) Select(dest any, query string, args ...any) error {
+	return m.Called(dest, query, args).Error(0)
 }
 
 func (m *MockPooler) Close() {

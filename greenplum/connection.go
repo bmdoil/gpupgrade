@@ -16,14 +16,14 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-var newPoolerFunc = NewPooler
+var NewPoolerFunc = NewPooler
 
 func SetNewPoolerFunc(command func(...Option) (Pooler, error)) {
-	newPoolerFunc = command
+	NewPoolerFunc = command
 }
 
 func ResetNewPoolerFunc() {
-	newPoolerFunc = NewPooler
+	NewPoolerFunc = NewPooler
 }
 
 type Pooler interface {

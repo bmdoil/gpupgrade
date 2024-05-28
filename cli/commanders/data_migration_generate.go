@@ -481,7 +481,7 @@ func GeneratePartitionIndexScripts(port int, database string, phase idl.Step, ou
 	}
 
 
-	pool, err := greenplum.NewPooler(greenplum.Port(port), greenplum.Database(database))
+	pool, err := greenplum.NewPoolerFunc(greenplum.Port(port), greenplum.Database(database))
 	if err != nil {
 		return err
 	}
@@ -527,19 +527,9 @@ func GetIndexStatements(pool greenplum.Pooler, phase idl.Step) (IndexStatements,
 		return IndexStatements{}, nil
 	}
 
-	rows, err := pool.Query(query)
+	err := pool.Select(statements, query)
 	if err != nil {
 		return indexStatements, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var stmt IndexStatement
-		err = rows.Scan(&stmt.Schema, &stmt.Name, &stmt.Table, &stmt.Definition)
-		if err != nil {
-			return indexStatements, err
-		}
-		statements = append(statements, stmt)
 	}
 
 	if len(statements) == 0 {

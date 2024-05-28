@@ -201,7 +201,7 @@ func ApplyIndexStatements(scriptPath string, port int, jobs int) error {
 		batches[statement.Table] = append(batches[statement.Table], statement)
 	}
 
-	pool, err := greenplum.NewPooler(greenplum.Port(port), greenplum.Database(indexStatements.Database), greenplum.Jobs(jobs))
+	pool, err := greenplum.NewPoolerFunc(greenplum.Port(port), greenplum.Database(indexStatements.Database), greenplum.Jobs(jobs))
 	if err != nil {
 		return err
 	}
