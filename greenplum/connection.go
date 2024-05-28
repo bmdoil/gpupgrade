@@ -29,6 +29,7 @@ func ResetNewPoolerFunc() {
 
 type Pooler interface {
 	Exec(sql string, args ...any) error
+	Query(sql string, args ...any) (*Rows, error)
 	Select(dest any, sql string, args ...any) error
 	Close()
 	ConnString() string
@@ -43,6 +44,10 @@ type Pool struct {
 	version    semver.Version
 	jobs       int
 	connString string
+}
+
+type Rows struct {
+	pgx.Rows
 }
 
 func NewPooler(options ...Option) (Pooler, error) {
@@ -117,15 +122,30 @@ func NewPooler(options ...Option) (Pooler, error) {
 func (p *Pool) Exec(query string, args ...any) error {
 	var err error
 	if p.Pool == nil {
-		return fmt.Errorf("pool is nil")
+		return errors.Errorf("pool is nil")
 	}
 	_, err = p.Pool.Exec(context.Background(), query, args...)
 	return err
 }
 
-// Select scans the result set into dest, which must be a pointer to a slice of structs.
+func (p *Pool) Query(query string, args ...any) (*Rows, error) {
+	if p.Pool == nil {
+		return nil, errors.Errorf("pool is nil")
+	}
+	rows, err := p.Pool.Query(context.Background(), query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return &Rows{Rows: rows}, nil
+}
+
+// Select executes a query and scans the resulting rows into
+// the destination, which must be a pointer to a slice.
 func (p *Pool) Select(dest any, query string, args ...any) error {
-	rows, err := p.Query(context.Background(), query, args...)
+	if p.Pool == nil {
+		return errors.Errorf("pool is nil")
+	}
+	rows, err := p.Query(query, args...)
 	if err != nil {
 		return err
 	}
@@ -133,23 +153,26 @@ func (p *Pool) Select(dest any, query string, args ...any) error {
 
 	destVal := reflect.ValueOf(dest)
 	if destVal.IsNil() || destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Slice {
-		return errors.Wrapf(err, "dest must be a non-nil pointer to a slice, got %T", destVal)
+		return errors.Errorf("dest must be a non-nil pointer to a slice, got %T", destVal)
 	}
-	sliceType := destVal.Type().Elem()
-	if sliceType.Kind() != reflect.Struct {
-		return errors.Wrap(err, "dest must be a pointer to a slice of structs")
-	}
+	// Get type of the slice elements
+	sliceType := destVal.Elem().Type().Elem()
+
 	for rows.Next() {
-		structVal := reflect.New(sliceType).Elem()
-		numFields := structVal.NumField()
+		// Create a new struct with the appropriate type and number of fields
+		newStruct := reflect.New(sliceType).Elem()
+		numFields := newStruct.NumField()
+		// Create a slice of pointers to the fields of the new struct
 		fieldPtrs := make([]any, numFields)
 		for i := 0; i < numFields; i++ {
-			fieldPtrs[i] = structVal.Field(i).Addr().Interface()
+			fieldPtrs[i] = newStruct.Field(i).Addr().Interface()
 		}
+		// Scan the row into the fields
 		if err := rows.Scan(fieldPtrs...); err != nil {
 			return errors.Wrapf(err, "failed to scan row into %T", dest)
 		}
-		destVal.Elem().Set(reflect.Append(destVal.Elem(), structVal))
+		// Append the struct to the dest slice
+		destVal.Elem().Set(reflect.Append(destVal.Elem(), newStruct))
 	}
 
 	return nil

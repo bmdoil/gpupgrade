@@ -73,6 +73,10 @@ func (m *MockPooler) Exec(query string, args ...any) error {
 	return m.Called(query, args).Error(0)
 }
 
+func (m *MockPooler) Query(query string, args ...any) (*greenplum.Rows, error) {
+	return m.Called(query, args).Get(0).(*greenplum.Rows), m.Called(query, args).Error(1)
+}
+
 func (m *MockPooler) Select(dest any, query string, args ...any) error {
 	return m.Called(dest, query, args).Error(0)
 }

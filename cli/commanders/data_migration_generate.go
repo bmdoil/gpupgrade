@@ -480,7 +480,6 @@ func GeneratePartitionIndexScripts(port int, database string, phase idl.Step, ou
 		return nil
 	}
 
-
 	pool, err := greenplum.NewPoolerFunc(greenplum.Port(port), greenplum.Database(database))
 	if err != nil {
 		return err
@@ -513,7 +512,7 @@ func GetIndexStatements(pool greenplum.Pooler, phase idl.Step) (IndexStatements,
 	indexStatements := IndexStatements{}
 	statements := new([]IndexStatement)
 
-	switch (phase) {
+	switch phase {
 	case idl.Step_initialize:
 		query = PartitionIndexInitialize
 		suffix = "gen_drop_partition_indexes.sql"
