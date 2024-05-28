@@ -60,6 +60,7 @@ func MockCluster() *greenplum.Cluster {
 	return &cluster
 }
 
+// MockPooler is a mock implementation of the Pooler interface.
 type MockPooler struct {
 	mock.Mock
 	database   string
