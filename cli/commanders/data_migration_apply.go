@@ -5,7 +5,6 @@ package commanders
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -186,7 +185,7 @@ func ApplyDataMigrationScriptSubDir(gphome string, port int, scriptDirFS fs.FS, 
 	return outputs, nil
 }
 
-func ApplyIndexStatements(scriptPath string, port int, numConns int) error {
+func ApplyIndexStatements(scriptPath string, port int, jobs int) error {
 	indexStatements, err := ReadIndexStatements(scriptPath)
 	if err != nil {
 		return err
@@ -202,7 +201,7 @@ func ApplyIndexStatements(scriptPath string, port int, numConns int) error {
 		batches[statement.Table] = append(batches[statement.Table], statement)
 	}
 
-	pool, err := greenplum.NewPool(greenplum.Port(port), greenplum.Database(indexStatements.Database), greenplum.NumConns(numConns))
+	pool, err := greenplum.NewPooler(greenplum.Port(port), greenplum.Database(indexStatements.Database), greenplum.Jobs(jobs))
 	if err != nil {
 		return err
 	}
@@ -210,7 +209,7 @@ func ApplyIndexStatements(scriptPath string, port int, numConns int) error {
 
 	errChan := make(chan error, len(indexStatements.Statements))
 	batchChan := make(chan []IndexStatement, len(batches))
-	jobs := min(int(pool.Config().MaxConns), int(len(indexStatements.Statements)))
+	jobs = min(int(pool.Jobs()), int(len(indexStatements.Statements)))
 
 	var wg sync.WaitGroup
 	for i := 0; i < jobs; i++ {
@@ -219,9 +218,9 @@ func ApplyIndexStatements(scriptPath string, port int, numConns int) error {
 			defer wg.Done()
 			for statements := range batchChan {
 				for _, s := range statements {
-					_, execErr := pool.Exec(context.Background(), s.Definition)
+					execErr := pool.Exec(s.Definition)
 					if execErr != nil {
-						errChan <- xerrors.Errorf("URI: %s: executing statement %q: %w", pool.Config().ConnString(), s.Definition, execErr)
+						errChan <- xerrors.Errorf("URI: %s: executing statement %q: %w", pool.ConnString(), s.Definition, execErr)
 					}
 				}
 			}

@@ -6,7 +6,6 @@ package commanders
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vbauerster/mpb/v8"
 	"github.com/vbauerster/mpb/v8/decor"
 	"golang.org/x/xerrors"
@@ -483,7 +481,7 @@ func GeneratePartitionIndexScripts(port int, database string, phase idl.Step, ou
 	}
 
 
-	pool, err := greenplum.NewPool(greenplum.Port(port), greenplum.Database(database))
+	pool, err := greenplum.NewPooler(greenplum.Port(port), greenplum.Database(database))
 	if err != nil {
 		return err
 	}
@@ -509,7 +507,7 @@ func GeneratePartitionIndexScripts(port int, database string, phase idl.Step, ou
 	return nil
 }
 
-func GetIndexStatements(pool *pgxpool.Pool, phase idl.Step) (IndexStatements, error) {
+func GetIndexStatements(pool greenplum.Pooler, phase idl.Step) (IndexStatements, error) {
 	var query string
 	var suffix string
 	indexStatements := IndexStatements{}
@@ -529,15 +527,15 @@ func GetIndexStatements(pool *pgxpool.Pool, phase idl.Step) (IndexStatements, er
 		return IndexStatements{}, nil
 	}
 
-	res, err := pool.Query(context.Background(), query)
+	rows, err := pool.Query(query)
 	if err != nil {
 		return indexStatements, err
 	}
-	defer res.Close()
+	defer rows.Close()
 
-	for res.Next() {
+	for rows.Next() {
 		var stmt IndexStatement
-		err = res.Scan(&stmt.Schema, &stmt.Name, &stmt.Table, &stmt.Definition)
+		err = rows.Scan(&stmt.Schema, &stmt.Name, &stmt.Table, &stmt.Definition)
 		if err != nil {
 			return indexStatements, err
 		}
@@ -548,7 +546,7 @@ func GetIndexStatements(pool *pgxpool.Pool, phase idl.Step) (IndexStatements, er
 		return indexStatements, nil
 	}
 
-	indexStatements.Database = pool.Config().ConnConfig.Database
+	indexStatements.Database = pool.Database()
 	indexStatements.Filename = fmt.Sprintf("migration_%s_%s", indexStatements.Database, suffix)
 	indexStatements.Statements = statements
 

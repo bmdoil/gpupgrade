@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	"github.com/blang/semver/v4"
+	"github.com/jackc/pgx/v5"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/greenplum-db/gpupgrade/greenplum"
 )
@@ -56,4 +59,40 @@ func MockCluster() *greenplum.Cluster {
 	}
 
 	return &cluster
+}
+
+type MockPooler struct {
+	mock.Mock
+	database   string
+	version    semver.Version
+	jobs       int
+	connString string
+}
+
+func (m *MockPooler) Exec(query string, args ...any) error {
+	return m.Called(query, args).Error(0)
+}
+
+func (m *MockPooler) Query(sql string, args ...any) (pgx.Rows, error) {
+	return m.Called(sql, args).Get(0).(pgx.Rows), m.Called(sql, args).Error(1)
+}
+
+func (m *MockPooler) Close() {
+	m.Called()
+}
+
+func (m *MockPooler) Database() string {
+	return m.database
+}
+
+func (m *MockPooler) Version() semver.Version {
+	return m.version
+}
+
+func (m *MockPooler) Jobs() int {
+	return m.jobs
+}
+
+func (m *MockPooler) ConnString() string {
+	return m.connString
 }

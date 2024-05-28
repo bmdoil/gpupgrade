@@ -14,12 +14,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+
 	// "strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/blang/semver/v4"
+	"github.com/stretchr/testify/mock"
 	"github.com/vbauerster/mpb/v8"
 
 	"github.com/greenplum-db/gpupgrade/cli/commanders"
@@ -238,80 +241,94 @@ func TestGenerateScriptsPerDatabase(t *testing.T) {
 	greenplum.SetVersionCommand(exectest.NewCommand(PostgresGPVersion_6_7_1))
 	defer greenplum.ResetVersionCommand()
 
-	// t.Run("does not error when plpythonu is present", func(t *testing.T) {
-	// 	db, mock, err := sqlmock.New()
-	// 	if err != nil {
-	// 		t.Fatalf("couldn't create sqlmock: %v", err)
-	// 	}
-	// 	defer testutils.FinishMock(mock, t)
+	mockPooler := new(testutils.MockPooler)
+	rows := sqlmock.NewRows([]string{"datname", "quoted_datname"}).AddRow("postgres", "postgres")
+	mockPooler.On("Query", mock.Anything, mock.Anything).Return(rows, nil)
+	mockPooler.On("ConnString").Return("postgresql://localhost:123/postgres")
+	mockPooler.On("Close").Return()
+	mockPooler.On("Exec", mock.Anything, mock.Anything).Return(nil)
+	mockPooler.On("Database").Return("postgres")
+	mockPooler.On("Version").Return(semver.Version{Major: 6, Minor: 7, Patch: 1})
+	
+	greenplum.SetNewPoolerFunc(func(...greenplum.Option) (greenplum.Pooler, error) {
+		fmt.Println("greenplum.SetNewPoolerFunc")
+		return mockPooler, nil
+	})
 
-	// 	commanders.SetBootstrapConnectionFunction(func(destination idl.ClusterDestination, gphome string, port int) (*sql.DB, error) {
-	// 		return db, nil
-	// 	})
-	// 	defer commanders.ResetBootstrapConnectionFunction()
+	t.Run("does not error when plpythonu is present", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("couldn't create sqlmock: %v", err)
+		}
+		defer testutils.FinishMock(mock, t)
 
-	// 	outputDir := testutils.GetTempDir(t, "")
-	// 	defer testutils.MustRemoveAll(t, outputDir)
+		commanders.SetBootstrapConnectionFunction(func(destination idl.ClusterDestination, gphome string, port int) (*sql.DB, error) {
+			return db, nil
+		})
+		defer commanders.ResetBootstrapConnectionFunction()
 
-	// 	testutils.MustCreateDir(t, filepath.Join(outputDir, "current"))
+		outputDir := testutils.GetTempDir(t, "")
+		defer testutils.MustRemoveAll(t, outputDir)
 
-	// 	expectPgDatabaseToReturn(mock).WillReturnRows(sqlmock.NewRows([]string{"datname", "quoted_datname"}).AddRow("postgres", "postgres"))
+		testutils.MustCreateDir(t, filepath.Join(outputDir, "current"))
 
-	// 	numCalls := 0
-	// 	commanders.SetPsqlCommand(exectest.NewCommandWithVerifier(Success, func(utility string, args ...string) {
-	// 		numCalls++
+		expectPgDatabaseToReturn(mock).WillReturnRows(sqlmock.NewRows([]string{"datname", "quoted_datname"}).AddRow("postgres", "postgres"))
 
-	// 		expectedUtility := "/usr/local/gpdb5/bin/psql"
-	// 		if utility != expectedUtility {
-	// 			t.Errorf("got %q want %q", utility, expectedUtility)
-	// 		}
+		numCalls := 0
+		commanders.SetPsqlCommand(exectest.NewCommandWithVerifier(Success, func(utility string, args ...string) {
+			numCalls++
 
-	// 		actualSql := args[7:8]
-	// 		if numCalls == 1 {
-	// 			expected := []string{"CREATE LANGUAGE plpythonu;"}
-	// 			if !reflect.DeepEqual(actualSql, expected) {
-	// 				t.Errorf("got sql %q, want %q", actualSql, expected)
-	// 			}
-	// 		}
+			expectedUtility := "/usr/local/gpdb5/bin/psql"
+			if utility != expectedUtility {
+				t.Errorf("got %q want %q", utility, expectedUtility)
+			}
 
-	// 		if numCalls == 2 {
-	// 			expected := []string{"DROP SCHEMA IF EXISTS __gpupgrade_tmp_generator CASCADE; CREATE SCHEMA __gpupgrade_tmp_generator;"}
-	// 			if !reflect.DeepEqual(actualSql, expected) {
-	// 				t.Errorf("got sql %q, want %q", actualSql, expected)
-	// 			}
-	// 		}
-	// 	}))
-	// 	defer commanders.ResetPsqlCommand()
+			actualSql := args[7:8]
+			if numCalls == 1 {
+				expected := []string{"CREATE LANGUAGE plpythonu;"}
+				if !reflect.DeepEqual(actualSql, expected) {
+					t.Errorf("got sql %q, want %q", actualSql, expected)
+				}
+			}
 
-	// 	commanders.SetPsqlFileCommand(exectest.NewCommand(Success))
-	// 	defer commanders.ResetPsqlFileCommand()
+			if numCalls == 2 {
+				expected := []string{"DROP SCHEMA IF EXISTS __gpupgrade_tmp_generator CASCADE; CREATE SCHEMA __gpupgrade_tmp_generator;"}
+				if !reflect.DeepEqual(actualSql, expected) {
+					t.Errorf("got sql %q, want %q", actualSql, expected)
+				}
+			}
+		}))
+		defer commanders.ResetPsqlCommand()
 
-	// 	utils.System.DirFS = func(dir string) fs.FS {
-	// 		return fstest.MapFS{
-	// 			idl.Step_initialize.String(): {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_initialize.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_initialize.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
-	// 			idl.Step_execute.String(): {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_execute.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_execute.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
-	// 			idl.Step_finalize.String(): {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_finalize.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_finalize.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
-	// 			idl.Step_revert.String(): {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_revert.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_revert.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
-	// 			idl.Step_stats.String(): {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_stats.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
-	// 			filepath.Join(idl.Step_stats.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
-	// 		}
-	// 	}
-	// 	defer utils.ResetSystemFunctions()
+		commanders.SetPsqlFileCommand(exectest.NewCommand(Success))
+		defer commanders.ResetPsqlFileCommand()
 
-	// 	err = commanders.GenerateDataMigrationScripts(step.DevNullStream, true, "/usr/local/gpdb5", 0, "", outputDir, fstest.MapFS{})
-	// 	if err != nil {
-	// 		t.Errorf("unexpected error: %#v", err)
-	// 	}
-	// })
+		utils.System.DirFS = func(dir string) fs.FS {
+			return fstest.MapFS{
+				idl.Step_initialize.String(): {Mode: os.ModeDir},
+				filepath.Join(idl.Step_initialize.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
+				filepath.Join(idl.Step_initialize.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
+				idl.Step_execute.String(): {Mode: os.ModeDir},
+				filepath.Join(idl.Step_execute.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
+				filepath.Join(idl.Step_execute.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
+				idl.Step_finalize.String(): {Mode: os.ModeDir},
+				filepath.Join(idl.Step_finalize.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
+				filepath.Join(idl.Step_finalize.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
+				idl.Step_revert.String(): {Mode: os.ModeDir},
+				filepath.Join(idl.Step_revert.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
+				filepath.Join(idl.Step_revert.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
+				idl.Step_stats.String(): {Mode: os.ModeDir},
+				filepath.Join(idl.Step_stats.String(), "unique_primary_foreign_key_constraint"):                                                                {Mode: os.ModeDir},
+				filepath.Join(idl.Step_stats.String(), "unique_primary_foreign_key_constraint", "migration_postgres_gen_drop_constraint_2_primary_unique.sql"): {},
+			}
+		}
+		defer utils.ResetSystemFunctions()
+
+		err = commanders.GenerateDataMigrationScripts(step.DevNullStream, true, "/usr/local/gpdb5", 0, "", outputDir, fstest.MapFS{})
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 
 	t.Run("errors when creating plpythonu fails with other error", func(t *testing.T) {
 		db, mock, err := sqlmock.New()
