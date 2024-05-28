@@ -191,13 +191,13 @@ func ApplyIndexStatements(scriptPath string, port int, jobs int) error {
 		return err
 	}
 
-	if len(indexStatements.Statements) == 0 {
+	if indexStatements.Count() == 0 {
 		return xerrors.Errorf("Failed to apply data migration script. No index statements found in %q.", scriptPath)
 	}
 
 	batches := make(map[string][]IndexStatement)
 
-	for _, statement := range indexStatements.Statements {
+	for _, statement := range *indexStatements.Statements {
 		batches[statement.Table] = append(batches[statement.Table], statement)
 	}
 
@@ -207,9 +207,9 @@ func ApplyIndexStatements(scriptPath string, port int, jobs int) error {
 	}
 	defer pool.Close()
 
-	errChan := make(chan error, len(indexStatements.Statements))
+	errChan := make(chan error, indexStatements.Count())
 	batchChan := make(chan []IndexStatement, len(batches))
-	jobs = min(int(pool.Jobs()), int(len(indexStatements.Statements)))
+	jobs = min(int(pool.Jobs()), int(indexStatements.Count()))
 
 	var wg sync.WaitGroup
 	for i := 0; i < jobs; i++ {

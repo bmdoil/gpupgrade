@@ -81,17 +81,17 @@ func TestReadIndexStatements(t *testing.T) {
 		t.Errorf("ReadIndexStatements() unexpected error: %v", err)
 	}
 
-	if len(indexStatements.Statements) != 2 {
-		t.Errorf("ReadIndexStatements() = %v, want %v", len(indexStatements.Statements), 2)
+	if indexStatements.Count() != 2 {
+		t.Errorf("ReadIndexStatements() = %v, want %v", indexStatements.Count(), 2)
 	}
 
 	expectedStmt1 := commanders.IndexStatement{Schema: "public", Name: "index1", Table: "table1", Definition: "CREATE INDEX index1 ON table1 (column1);"}
 	expectedStmt2 := commanders.IndexStatement{Schema: "public", Name: "index2", Table: "table2", Definition: "CREATE INDEX index2 ON table2 (column2);"}
 
-	if indexStatements.Statements[0] != expectedStmt1 {
-		t.Errorf("ReadIndexStatements() = %v, want %v", indexStatements.Statements[0], expectedStmt1)
+	if (*indexStatements.Statements)[0] != expectedStmt1 {
+		t.Errorf("ReadIndexStatements() = %v, want %v", (*indexStatements.Statements)[0], expectedStmt1)
 	}
-	if indexStatements.Statements[1] != expectedStmt2 {
-		t.Errorf("ReadIndexStatements() = %v, want %v", indexStatements.Statements[1], expectedStmt2)
+	if (*indexStatements.Statements)[1] != expectedStmt2 {
+		t.Errorf("ReadIndexStatements() = %v, want %v", (*indexStatements.Statements)[1], expectedStmt2)
 	}
 }

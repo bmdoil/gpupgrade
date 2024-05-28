@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pkg/errors"
 )
 
 var NewPoolerFunc = NewPooler
@@ -122,6 +123,7 @@ func (p *Pool) Exec(query string, args ...any) error {
 	return err
 }
 
+// Select scans the result set into dest, which must be a pointer to a slice of structs.
 func (p *Pool) Select(dest any, query string, args ...any) error {
 	rows, err := p.Query(context.Background(), query, args...)
 	if err != nil {
@@ -130,24 +132,24 @@ func (p *Pool) Select(dest any, query string, args ...any) error {
 	defer rows.Close()
 
 	destVal := reflect.ValueOf(dest)
-	if destVal.IsNil() {
-		return fmt.Errorf("dest must be a non-nil pointer to a slice")
+	if destVal.IsNil() || destVal.Kind() != reflect.Ptr || destVal.Elem().Kind() != reflect.Slice {
+		return errors.Wrapf(err, "dest must be a non-nil pointer to a slice, got %T", destVal)
 	}
-	if destVal.Kind() != reflect.Ptr {
-		return fmt.Errorf("dest must be a pointer")
+	sliceType := destVal.Type().Elem()
+	if sliceType.Kind() != reflect.Struct {
+		return errors.Wrap(err, "dest must be a pointer to a slice of structs")
 	}
-	destVal = destVal.Elem()
-	if destVal.Kind() != reflect.Slice {
-		return fmt.Errorf("dest must be a pointer to a slice")
-	}
-	destElems := destVal.Type().Elem()
 	for rows.Next() {
-		elem := reflect.New(destElems).Interface()
-		err = rows.Scan(elem)
-		if err != nil {
-			return err
+		structVal := reflect.New(sliceType).Elem()
+		numFields := structVal.NumField()
+		fieldPtrs := make([]any, numFields)
+		for i := 0; i < numFields; i++ {
+			fieldPtrs[i] = structVal.Field(i).Addr().Interface()
 		}
-		destVal.Set(reflect.Append(destVal, reflect.ValueOf(elem).Elem()))
+		if err := rows.Scan(fieldPtrs...); err != nil {
+			return errors.Wrapf(err, "failed to scan row into %T", dest)
+		}
+		destVal.Elem().Set(reflect.Append(destVal.Elem(), structVal))
 	}
 
 	return nil

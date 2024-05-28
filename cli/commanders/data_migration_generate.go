@@ -492,7 +492,7 @@ func GeneratePartitionIndexScripts(port int, database string, phase idl.Step, ou
 		return err
 	}
 
-	if len(indexStatements.Statements) > 0 {
+	if indexStatements.Count() > 0 {
 		outputPath := filepath.Join(outputDir, "current", phase.String(), "partitioned_tables_indexes")
 		err := utils.System.MkdirAll(outputPath, 0700)
 		if err != nil {
@@ -511,7 +511,7 @@ func GetIndexStatements(pool greenplum.Pooler, phase idl.Step) (IndexStatements,
 	var query string
 	var suffix string
 	indexStatements := IndexStatements{}
-	statements := make([]IndexStatement, 0)
+	statements := new([]IndexStatement)
 
 	switch (phase) {
 	case idl.Step_initialize:
@@ -532,7 +532,7 @@ func GetIndexStatements(pool greenplum.Pooler, phase idl.Step) (IndexStatements,
 		return indexStatements, err
 	}
 
-	if len(statements) == 0 {
+	if len(*statements) == 0 {
 		return indexStatements, nil
 	}
 
@@ -548,7 +548,7 @@ func WriteIndexScript(statements IndexStatements, outputPath string) error {
 	contents := new(bytes.Buffer)
 
 	contents.WriteString("\\c " + statements.Database + "\n")
-	for _, stmt := range statements.Statements {
+	for _, stmt := range *statements.Statements {
 		err := stmt.Write(contents)
 		if err != nil {
 			return err

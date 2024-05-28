@@ -13,6 +13,7 @@ type Statement interface {
 	FQN() string
 	Write(outputFile string) error
 	Parse(stmt string) error
+	Count() int
 }
 
 type Statements []Statement
@@ -20,7 +21,8 @@ type Statements []Statement
 type IndexStatements struct {
 	Database string
 	Filename string
-	Statements []IndexStatement
+	Statements *[]IndexStatement
+	count int
 }
 
 type IndexStatement struct {
@@ -80,9 +82,16 @@ func (i *IndexStatement) Parse(stmt string) error {
 	return nil
 }
 
+func (i *IndexStatements) Count() int {
+	if i.Statements == nil {
+		return 0
+	}
+	return len(*i.Statements)
+}
+
 func ReadIndexStatements(inputFile string) (IndexStatements, error) {
 	indexStatements := IndexStatements{}
-	statementSlice := make([]IndexStatement, 0)
+	statementSlice := new([]IndexStatement)
 	contents, err := utils.System.ReadFile(inputFile)
 	if err != nil {
 		return indexStatements, err
@@ -105,10 +114,11 @@ func ReadIndexStatements(inputFile string) (IndexStatements, error) {
 			return indexStatements, err
 		}
 
-		statementSlice = append(statementSlice, index)
+		*statementSlice = append(*statementSlice, index)
 	}
 
 	indexStatements.Statements = statementSlice
+	indexStatements.count = len(*statementSlice)
 
 	return indexStatements, nil
 }
